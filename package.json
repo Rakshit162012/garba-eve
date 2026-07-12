@@ -1,1 +1,11 @@
-
+{
+  "name": "garba-eve-2026",
+  "version": "1.0.0",
+  "description": "Garba Eve Registration System",
+  "scripts": {
+    "build": "echo 'No build needed'"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^0.9.0"
+  }
+}
