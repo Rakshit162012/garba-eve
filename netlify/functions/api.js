@@ -1,73 +1,90 @@
-const express = require('express');
-const cors = require('cors');
-const { Pool } = require('pg');
+const { neon } = require('@neondatabase/serverless');
 
-const app = express();
-app.use(cors());
-app.use(express.json());
+const sql = neon(process.env.DATABASE_URL);
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL, // Your Neon connection string
-  ssl: { rejectUnauthorized: false }
-});
+exports.handler = async (event, context) => {
+    // Enable CORS
+    const headers = {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Content-Type',
+        'Access-Control-Allow-Methods': 'GET, POST, PATCH, OPTIONS'
+    };
 
-function rowToRegistration(row) {
-  return {
-    id: row.id,
-    name: row.name,
-    email: row.email,
-    phone: row.phone,
-    adults: row.adults,
-    kids516: row.kids516,
-    kidsU5: row.kidsu5,
-    attendees: row.attendees,
-    totalPeople: row.total_people,
-    totalAmount: parseFloat(row.total_amount),
-    registeredAt: row.registered_at,
-    checkedIn: row.checked_in,
-    checkedInAt: row.checked_in_at
-  };
-}
+    // Handle preflight
+    if (event.httpMethod === 'OPTIONS') {
+        return { statusCode: 200, headers, body: '' };
+    }
 
-app.get('/api/registrations', async (req, res) => {
-  try {
-    const result = await pool.query('SELECT * FROM registrations ORDER BY registered_at DESC');
-    res.json(result.rows.map(rowToRegistration));
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ error: 'Database error' });
-  }
-});
+    const path = event.path.replace('/.netlify/functions/api/', '');
+    const method = event.httpMethod;
 
-app.post('/api/registrations', async (req, res) => {
-  const r = req.body;
-  try {
-    await pool.query(
-      `INSERT INTO registrations (id, name, email, phone, adults, kids516, kidsu5, attendees, total_people, total_amount, registered_at, checked_in, checked_in_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
-      [r.id, r.name, r.email, r.phone, r.adults, r.kids516, r.kidsU5, JSON.stringify(r.attendees), r.totalPeople, r.totalAmount, r.registeredAt, r.checkedIn, r.checkedInAt]
-    );
-    res.json({ success: true });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ error: 'Insert failed' });
-  }
-});
+    try {
+        // GET /api/registrations - Fetch all
+        if (path === 'registrations' && method === 'GET') {
+            const rows = await sql`SELECT * FROM registrations ORDER BY registeredAt DESC`;
+            return {
+                statusCode: 200,
+                headers,
+                body: JSON.stringify(rows)
+            };
+        }
 
-app.patch('/api/registrations/:id', async (req, res) => {
-  const { id } = req.params;
-  const updates = req.body;
-  try {
-    await pool.query(
-      `UPDATE registrations SET checked_in = $1, checked_in_at = $2 WHERE id = $3`,
-      [updates.checkedIn, updates.checkedInAt, id]
-    );
-    res.json({ success: true });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ error: 'Update failed' });
-  }
-});
+        // POST /api/registrations - Create new
+        if (path === 'registrations' && method === 'POST') {
+            const data = JSON.parse(event.body);
+            await sql`
+                INSERT INTO registrations 
+                (id, name, email, phone, adults, kids516, kidsU5, attendees, totalPeople, totalAmount, checkedIn)
+                VALUES (
+                    ${data.id}, 
+                    ${data.name}, 
+                    ${data.email}, 
+                    ${data.phone}, 
+                    ${data.adults}, 
+                    ${data.kids516}, 
+                    ${data.kidsU5}, 
+                    ${JSON.stringify(data.attendees)}, 
+                    ${data.totalPeople}, 
+                    ${data.totalAmount}, 
+                    false
+                )
+            `;
+            return {
+                statusCode: 200,
+                headers,
+                body: JSON.stringify({ success: true })
+            };
+        }
 
-const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => console.log(`API running on port ${PORT}`));
+        // PATCH /api/registrations/:id - Update check-in
+        if (path.startsWith('registrations/') && method === 'PATCH') {
+            const id = path.split('/')[1];
+            const data = JSON.parse(event.body);
+            await sql`
+                UPDATE registrations 
+                SET checkedIn = ${data.checkedIn}, 
+                    checkedInAt = ${data.checkedInAt}
+                WHERE id = ${id}
+            `;
+            return {
+                statusCode: 200,
+                headers,
+                body: JSON.stringify({ success: true })
+            };
+        }
+
+        return {
+            statusCode: 404,
+            headers,
+            body: JSON.stringify({ error: 'Not Found' })
+        };
+
+    } catch (error) {
+        console.error('Error:', error);
+        return {
+            statusCode: 500,
+            headers,
+            body: JSON.stringify({ error: error.message })
+        };
+    }
+};
