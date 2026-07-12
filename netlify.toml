@@ -1,7 +1,6 @@
-[build]
-  command = "npm install"
-  functions = "netlify/functions"
-  publish = "."
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
 
 [[redirects]]
   from = "/api/*"
