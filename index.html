@@ -1,1 +1,2476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Garba Eve 2026 - Grenoble</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <!-- QR Code Generator -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- jsPDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" id="jspdf-script"></script>
+    <!-- HTML5 QR Scanner -->
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        display: ['Playfair Display', 'serif'],
+                        body: ['DM Sans', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        :root {
+            --bg: #0C0015;
+            --bg-subtle: #160825;
+            --card: #1A0A2E;
+            --card-hover: #2A1545;
+            --border: #6B2D7B;
+            --fg: #FFF5E1;
+            --fg-muted: #D4A857;
+            --accent: #FF6B00;
+            --accent-light: #FFB703;
+            --accent-glow: rgba(255,107,0,0.25);
+            --crimson: #DC143C;
+            --magenta: #C2185B;
+            --deep-purple: #4A0E5C;
+            --success: #22C55E;
+            --danger: #EF4444;
+            --warning: #EAB308;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: var(--bg);
+            color: var(--fg);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .page {
+            display: none;
+            opacity: 0;
+            transition: opacity 0.4s ease-in-out;
+        }
+
+        .page.active {
+            display: block;
+            opacity: 1;
+        }
+
+        /* Premium Buttons */
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent), var(--accent-light));
+            color: #0C0015;
+            font-weight: 700;
+            padding: 14px 32px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 16px;
+            font-family: inherit;
+            letter-spacing: 0.5px;
+            box-shadow: 0 4px 15px rgba(255, 107, 0, 0.2);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px var(--accent-glow);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--accent);
+            border: 2px solid var(--accent);
+            font-weight: 600;
+            padding: 12px 28px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 15px;
+            font-family: inherit;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 107, 0, 0.1);
+            transform: translateY(-1px);
+        }
+
+        .btn-ghost {
+            background: transparent;
+            color: var(--fg-muted);
+            border: none;
+            font-size: 14px;
+            font-family: inherit;
+            transition: color 0.2s;
+        }
+
+        .btn-ghost:hover {
+            color: var(--fg);
+        }
+
+        .btn-download {
+            background: linear-gradient(135deg, #16A34A, #22C55E);
+            color: #fff;
+            font-weight: 700;
+            padding: 14px 32px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 16px;
+            font-family: inherit;
+            letter-spacing: 0.5px;
+            box-shadow: 0 4px 15px rgba(34, 197, 94, 0.2);
+        }
+
+        .btn-download:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(34, 197, 94, 0.3);
+        }
+
+        .btn-download:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        /* Card Designs */
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            transition: all 0.3s ease;
+        }
+
+        .form-input {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px 16px;
+            color: var(--fg);
+            font-family: inherit;
+            font-size: 15px;
+            width: 100%;
+            transition: all 0.3s ease;
+            outline: none;
+        }
+
+        .form-input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        .form-input::placeholder {
+            color: var(--fg-muted);
+            opacity: 0.6;
+        }
+
+        .form-input.error {
+            border-color: var(--danger);
+            box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
+        }
+
+        .copy-btn {
+            background: var(--card-hover);
+            border: 1px solid var(--border);
+            color: var(--fg-muted);
+            padding: 8px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 13px;
+            font-family: inherit;
+        }
+
+        .copy-btn:hover {
+            background: var(--accent);
+            color: #0C0015;
+            border-color: var(--accent);
+        }
+
+        .copy-btn.copied {
+            background: var(--success);
+            color: #fff;
+            border-color: var(--success);
+        }
+
+        /* Custom Toast Notification */
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10000;
+            padding: 14px 24px;
+            border-radius: 10px;
+            font-weight: 500;
+            transform: translateX(calc(100% + 40px));
+            transition: transform .4s cubic-bezier(.34, 1.56, .64, 1);
+            max-width: 380px;
+            font-family: inherit;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        .toast.show {
+            transform: translateX(0);
+        }
+
+        .toast-success {
+            background: #065F46;
+            color: #6EE7B7;
+            border: 1px solid #10B981;
+        }
+
+        .toast-error {
+            background: #7F1D1D;
+            color: #FCA5A5;
+            border: 1px solid #EF4444;
+        }
+
+        .toast-warning {
+            background: #78350F;
+            color: #FDE68A;
+            border: 1px solid #F59E0B;
+        }
+
+        .toast-info {
+            background: #1E3A8A;
+            color: #93C5FD;
+            border: 1px solid #3B82F6;
+        }
+
+        /* Decorative Traditional Brackets */
+        .invite-card {
+            position: relative;
+            background: linear-gradient(180deg, #1A0A2E 0%, #0C0015 100%);
+            border: 2px solid var(--accent-light);
+            border-radius: 16px;
+            padding: 36px 28px;
+            box-shadow: 0 80px rgba(255,107,0,0.08), inset 0 0 60px rgba(255,107,0,0.02);
+            max-width: 520px;
+            width: 100%;
+            margin: 0 auto;
+        }
+
+        .invite-card::before {
+            content: "";
+            position: absolute;
+            inset: 6px;
+            border: 1px solid rgba(255, 183, 3, 0.15);
+            border-radius: 12px;
+            pointer-events: none;
+        }
+
+        .corner {
+            position: absolute;
+            width: 32px;
+            height: 32px;
+        }
+
+        .corner::before, .corner::after {
+            content: "";
+            position: absolute;
+            background: var(--accent-light);
+        }
+
+        .corner.tl { top: 10px; left: 10px; }
+        .corner.tl::before { top: 0; left: 0; width: 20px; height: 2px; }
+        .corner.tl::after { top: 0; left: 0; width: 2px; height: 20px; }
+
+        .corner.tr { top: 10px; right: 10px; }
+        .corner.tr::before { top: 0; right: 0; width: 20px; height: 2px; }
+        .corner.tr::after { top: 0; right: 0; width: 2px; height: 20px; }
+
+        .corner.bl { bottom: 10px; left: 10px; }
+        .corner.bl::before { bottom: 0; left: 0; width: 20px; height: 2px; }
+        .corner.bl::after { bottom: 0; left: 0; width: 2px; height: 20px; }
+
+        .corner.br { bottom: 10px; right: 10px; }
+        .corner.br::before { bottom: 0; right: 0; width: 20px; height: 2px; }
+        .corner.br::after { bottom: 0; right: 0; width: 2px; height: 20px; }
+
+        .ornament-divider {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 16px 0;
+        }
+
+        .ornament-divider .line {
+            flex: 1;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--accent-light), transparent);
+        }
+
+        .ornament-divider .icon {
+            color: var(--accent-light);
+            font-size: 11px;
+        }
+
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+
+        .shimmer-text {
+            background: linear-gradient(90deg, var(--accent) 0%, var(--accent-light) 25%, #FFF5E1 50%, var(--accent-light) 75%, var(--accent) 100%);
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: shimmer 4s linear infinite;
+        }
+
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 15px rgba(255,107,0,0.15); }
+            50% { box-shadow: 0 0 40px rgba(255,107,0,0.4); }
+        }
+
+        @keyframes float-diya {
+            0%, 100% { transform: translateY(0) scale(1); }
+            50% { transform: translateY(-5px) scale(1.06); }
+        }
+
+        .diya-glow {
+            animation: float-diya 3s ease-in-out infinite;
+            filter: drop-shadow(0 0 10px rgba(255,183,3,0.7));
+        }
+
+        .info-box {
+            background: rgba(255, 107, 0, 0.06);
+            border: 1px solid rgba(255, 107, 0, 0.2);
+            border-radius: 10px;
+            padding: 14px 18px;
+        }
+
+        .badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            display: inline-block;
+        }
+
+        .badge-success { background: rgba(34, 197, 94, 0.15); color: #22C55E; }
+        .badge-warning { background: rgba(234, 179, 8, 0.15); color: #EAB308; }
+        .badge-danger { background: rgba(239, 68, 68, 0.15); color: #EF4444; }
+
+        .stepper {
+            display: flex;
+            align-items: center;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+            background: var(--bg);
+        }
+
+        .stepper-btn {
+            width: 44px;
+            height: 44px;
+            background: var(--bg-subtle);
+            border: none;
+            color: var(--fg);
+            font-size: 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .stepper-btn:hover:not(:disabled) {
+            background: var(--accent);
+            color: #0C0015;
+        }
+
+        .stepper-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .stepper-value {
+            width: 52px;
+            text-align: center;
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--accent-light);
+            background: transparent;
+            border: none;
+            border-left: 1px solid var(--border);
+            border-right: 1px solid var(--border);
+            height: 44px;
+            line-height: 44px;
+            pointer-events: none;
+        }
+
+        .price-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 0;
+            font-size: 15px;
+        }
+
+        .price-total {
+            font-size: 22px;
+            font-weight: 900;
+            font-family: 'Playfair Display', serif;
+            color: var(--accent-light);
+            border-top: 2px solid var(--border);
+            margin-top: 8px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .divider {
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--border), transparent);
+        }
+
+        .stat-bar-track {
+            height: 16px;
+            background: var(--bg);
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .stat-bar-fill {
+            height: 100%;
+            border-radius: 8px;
+            transition: width 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        #scanner-region {
+            width: 100%;
+            max-width: 400px;
+            aspect-ratio: 1;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 2px solid var(--border);
+            background: #000;
+            margin: 0 auto;
+        }
+
+        #scanner-region video {
+            width: 100% !important;
+            height: 100% !important;
+            object-fit: cover;
+        }
+
+        .admin-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 8000;
+            background: rgba(18, 0, 33, 0.9);
+            border-bottom: 1px solid rgba(255, 107, 0, 0.3);
+            backdrop-filter: blur(12px);
+            padding: 8px 20px;
+            display: none;
+            align-items: center;
+            gap: 16px;
+            font-size: 13px;
+        }
+
+        .admin-bar.show {
+            display: flex;
+        }
+
+        .admin-bar a {
+            color: var(--accent-light);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .admin-bar a:hover {
+            color: var(--accent);
+        }
+
+        .admin-bar a.active-tab {
+            text-decoration: underline;
+            font-weight: bold;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(8px);
+            z-index: 9000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .modal-overlay.show {
+            display: flex;
+        }
+
+        .countdown-digit {
+            background: rgba(255, 107, 0, 0.08);
+            border: 1px solid rgba(255, 107, 0, 0.2);
+            border-radius: 8px;
+            padding: 8px 14px;
+            text-align: center;
+        }
+
+        .countdown-digit .num {
+            font-family: 'Playfair Display', serif;
+            font-weight: 900;
+            font-size: 26px;
+            color: var(--accent-light);
+            line-height: 1;
+        }
+
+        .countdown-digit .label {
+            font-size: 9px;
+            color: var(--fg-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 4px;
+        }
+
+        .closed-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(12, 0, 21, 0.95);
+            border-radius: 14px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            z-index: 20;
+            backdrop-filter: blur(4px);
+        }
+
+        @media (max-width: 640px) {
+            .invite-card { padding: 24px 16px; }
+            .stepper-btn { width: 38px; height: 38px; }
+            .stepper-value { width: 44px; height: 38px; font-size: 16px; }
+            .countdown-digit { min-width: 52px; padding: 6px 10px; }
+            .countdown-digit .num { font-size: 22px; }
+        }
+
+        /* Webkit scrollbar customized for traditional theme */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg); }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, ::before, ::after {
+                animation-duration: 0.01ms !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="toast-container"></div>
+
+    <!-- Admin Top Nav Bar -->
+    <nav class="admin-bar" id="admin-bar" role="navigation" aria-label="Administration">
+        <i class="fa-solid fa-shield-halved" style="color:var(--accent-light);"></i>
+        <span style="color:var(--fg-muted);">Organizer Dashboard</span>
+        <a href="#" onclick="navigate('scanner');return false;" id="nav-scanner"><i class="fa-solid fa-qrcode"></i> Check-in Scanner</a>
+        <a href="#" onclick="navigate('stats');return false;" id="nav-stats"><i class="fa-solid fa-chart-bar"></i> Analytics &amp; Roster</a>
+        <a href="#" onclick="navigate('landing');return false;" class="margin-top:auto;"><i class="fa-solid fa-arrow-left"></i> Exit Dashboard</a>
+    </nav>
+
+    <!-- Admin Credentials Modal -->
+    <div class="modal-overlay" id="admin-modal">
+        <div class="card" style="max-width:380px; width:100%;">
+            <h3 class="font-display text-xl font-bold mb-4">Organizer Access</h3>
+            <p class="text-sm mb-4" style="color:var(--fg-muted);">Please enter administrative passcode to unlock check-in scanner and statistics.</p>
+            <input type="password" id="admin-pwd" class="form-input mb-4" placeholder="Access Passcode" aria-label="Passcode">
+            <div class="flex gap-3">
+                <button class="btn-primary flex-1" onclick="tryAdminLogin()">Sign In</button>
+                <button class="btn-ghost" onclick="closeAdminModal()">Cancel</button>
+            </div>
+            <p id="admin-error" class="text-sm mt-3" style="color:var(--danger);display:none;">Authentication failed. Try again.</p>
+        </div>
+    </div>
+
+    <!-- ====================================
+         PAGE: LANDING (MAIN HOME SCREEN)
+         ==================================== -->
+    <div id="page-landing" class="page active">
+        <div class="relative min-h-screen flex flex-col items-center justify-center px-4 py-12" style="z-index: 1;">
+            <div class="relative z-10 flex flex-col items-center" style="margin-top:10px;">
+                
+                <!-- Festive Card Frame Container -->
+                <div class="invite-card text-center mb-2" id="invite-card-container">
+                    <div class="corner tl"></div><div class="corner tr"></div>
+                    <div class="corner bl"></div><div class="corner br"></div>
+                    
+                    <div class="text-center mb-4">
+                        <img src="https://i.ibb.co/P0dQXyT/logo-removebg-preview.png" alt="Garba Eve 2026 Logo" style="max-width:260px;width:100%;margin:0 auto;display:block;" onerror="this.style.display='none'">
+                    </div>
+
+                    <div class="ornament-divider">
+                        <span class="line"></span>
+                        <span class="icon"><i class="fa-solid fa-fire"></i></span>
+                        <span class="line"></span>
+                    </div>
+
+                    <h1 class="font-display font-black text-center shimmer-text leading-none mb-2" style="font-size:clamp(2.1rem, 7vw, 3.2rem);">Garba Eve 2026</h1>
+                    <p class="text-center text-xs tracking-widest uppercase mb-4" style="color:var(--fg-muted);">Indian Community France &mdash; Grenoble</p>
+
+                    <div class="ornament-divider">
+                        <span class="line"></span>
+                        <span class="icon"><i class="fa-solid fa-om"></i></span>
+                        <span class="line"></span>
+                    </div>
+
+                    <p class="text-center mb-6 text-sm sm:text-base leading-relaxed" style="color:var(--fg);">
+                        Join us for an elegant evening of rhythmic dance, vibrant culture, and delicious Indian street food.
+                    </p>
+
+                    <!-- Event Details Card Grid -->
+                    <div class="grid grid-cols-1 gap-3 text-left mb-6 text-sm" style="color:var(--fg-muted);">
+                        <div class="flex items-center gap-3 info-box">
+                            <i class="fa-solid fa-calendar-days text-lg" style="color:var(--accent-light);"></i>
+                            <span>10th October 2026</span>
+                        </div>
+                        <div class="flex items-center gap-3 info-box">
+                            <i class="fa-solid fa-clock text-lg" style="color:var(--accent-light);"></i>
+                            <span>4:00 PM &mdash; 7:00 PM CEST</span>
+                        </div>
+                        <div class="flex items-center gap-3 info-box">
+                            <i class="fa-solid fa-location-dot text-lg" style="color:var(--accent-light);"></i>
+                            <div>
+                                <span class="block font-semibold text-white">Salle Polyvalente Gali</span>
+                                <span class="text-xs">39 Rue Andre Rivoire, 38100 Grenoble</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Get Directions Link -->
+                    <a href="https://www.google.com/maps/dir/?api=1&destination=Salle+Polyvalente+Gali+39+Rue+Andre+Rivoire+38100+Grenoble" target="_blank" rel="noopener" class="btn-secondary inline-flex items-center justify-center gap-2 mb-6 w-full text-center">
+                        <i class="fa-solid fa-diamond-turn-right"></i> Open Navigation Map
+                    </a>
+
+                    <!-- Ticket Pricing Details -->
+                    <div class="grid grid-cols-3 gap-2 text-center mb-4">
+                        <div class="p-2 rounded-lg" style="background:rgba(255,107,0,0.05); border:1px solid rgba(255,107,0,0.1);">
+                            <span class="block text-lg font-bold" style="color:var(--accent-light);">12 &euro;</span>
+                            <span class="text-[10px] uppercase tracking-wider" style="color:var(--fg-muted);">Adults</span>
+                        </div>
+                        <div class="p-2 rounded-lg" style="background:rgba(255,107,0,0.05); border:1px solid rgba(255,107,0,0.1);">
+                            <span class="block text-lg font-bold" style="color:var(--accent-light);">8 &euro;</span>
+                            <span class="text-[10px] uppercase tracking-wider" style="color:var(--fg-muted);">Kids (5-16)</span>
+                        </div>
+                        <div class="p-2 rounded-lg" style="background:rgba(34,197,94,0.05); border:1px solid rgba(34,197,94,0.15);">
+                            <span class="block text-lg font-bold" style="color:var(--success);">Free</span>
+                            <span class="text-[10px] uppercase tracking-wider" style="color:var(--fg-muted);">Under 5</span>
+                        </div>
+                    </div>
+
+                    <!-- Info Alert -->
+                    <div class="info-box text-xs text-left mb-6 leading-relaxed" style="color:var(--fg-muted);">
+                        <i class="fa-solid fa-circle-info mr-1" style="color:var(--accent-light);"></i>
+                        Traditional attire is highly recommended (Chaniya Choli, Kediyu, Kurta). Note that Tambola tickets are available at the counter for 2 &euro; each (please bring loose change).
+                    </div>
+
+                    <!-- Countdown Clock -->
+                    <div class="flex justify-center gap-3 mb-6" id="countdown">
+                        <div class="countdown-digit"><div class="num" id="cd-days">--</div><div class="label">Days</div></div>
+                        <div class="countdown-digit"><div class="num" id="cd-hours">--</div><div class="label">Hrs</div></div>
+                        <div class="countdown-digit"><div class="num" id="cd-mins">--</div><div class="label">Min</div></div>
+                        <div class="countdown-digit"><div class="num" id="cd-secs">--</div><div class="label">Sec</div></div>
+                    </div>
+
+                    <!-- Capacity Display -->
+                    <p class="text-center text-xs mb-4" id="spots-remaining" style="color:var(--fg-muted);"></p>
+
+                    <!-- Main Register Action -->
+                    <button class="btn-primary w-full text-lg font-bold" id="btn-register-cta" onclick="navigate('register')" style="animation: pulse-glow 3s ease-in-out infinite;">
+                        <i class="fa-solid fa-ticket mr-2"></i> Register Passes Now
+                    </button>
+
+                    <p class="text-center text-xs mt-2" style="color:var(--fg-muted);">Registration closes on September 30, 2026</p>
+
+                    <!-- Closed Overlay (Capacity Met or Date Exceeded) -->
+                    <div class="closed-overlay" id="reg-closed-overlay" style="display:none;">
+                        <i class="fa-solid fa-lock mb-3 text-4xl" style="color:var(--danger);"></i>
+                        <h2 class="font-display font-bold text-2xl mb-1 text-white">Registrations Closed</h2>
+                        <p class="text-sm max-w-xs" style="color:var(--fg-muted);">The portal has officially closed. We look forward to seeing everyone at Grenoble!</p>
+                    </div>
+                </div>
+
+                <!-- Organizer Modal Trigger Button -->
+                <div class="text-center mt-6">
+                    <p class="text-xs mb-2" style="color:var(--fg-muted); font-weight: 500;">
+                        Organized with <i class="fa-solid fa-heart" style="color:var(--accent);"></i> by Esha Sharma &amp; Mokshada Badgujar
+                    </p>
+                    <button class="btn-ghost text-xs" onclick="openAdminModal()">
+                        <i class="fa-solid fa-lock-open mr-1"></i> Organizer Portal
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- ====================================
+         PAGE: REGISTER (SECURE FORM)
+         ==================================== -->
+    <div id="page-register" class="page">
+        <div class="min-h-screen py-12 px-4 relative z-10">
+            <div class="max-w-[560px] mx-auto">
+                <button class="btn-ghost mb-6" onclick="navigate('landing')">
+                    <i class="fa-solid fa-arrow-left mr-2"></i> Back to Invitation
+                </button>
+
+                <h2 class="font-display font-bold text-3xl mb-1 text-white">Secure Event Registration</h2>
+                <p class="text-sm mb-6" style="color:var(--fg-muted);">Complete your group profile details below to secure entry passes.</p>
+
+                <form id="register-form" novalidate>
+                    <!-- Form Section: Primary Contact -->
+                    <div class="card mb-6">
+                        <h3 class="font-bold text-xs tracking-widest uppercase mb-4" style="color:var(--accent-light);">Primary Contact Details</h3>
+                        
+                        <div class="mb-4">
+                            <label class="block text-xs font-semibold mb-2" for="reg-name">Full Name *</label>
+                            <input type="text" id="reg-name" class="form-input" placeholder="Enter your full name" required>
+                            <div class="text-xs mt-1" style="color:var(--danger);display:none;" id="err-name">Full Name is required.</div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="block text-xs font-semibold mb-2" for="reg-email">Email Address *</label>
+                            <input type="email" id="reg-email" class="form-input" placeholder="name@domain.com" required>
+                            <div class="text-xs mt-1" style="color:var(--danger);display:none;" id="err-email">A valid email address is required.</div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold mb-2" for="reg-phone">Phone Number *</label>
+                            <input type="tel" id="reg-phone" class="form-input" placeholder="+33 6 XX XX XX XX" required>
+                            <div class="text-xs mt-1" style="color:var(--danger);display:none;" id="err-phone">A valid telephone number is required.</div>
+                        </div>
+                    </div>
+
+                    <!-- Form Section: Steppers and Group Size -->
+                    <div class="card mb-6">
+                        <h3 class="font-bold text-xs tracking-widest uppercase mb-4" style="color:var(--accent-light);">Group Assembly Configuration</h3>
+                        <p class="text-xs mb-4" style="color:var(--fg-muted);">Enter the total count of attendees for each category. Dynamic naming fields will appear below for everyone in your group.</p>
+
+                        <div class="space-y-4">
+                            <!-- Adults Stepper -->
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <label class="block text-sm font-semibold">Adults</label>
+                                    <span class="text-xs" style="color:var(--fg-muted);">12 &euro; per individual</span>
+                                    <span class="text-[10px] block" style="color:var(--accent-light);" id="remaining-adults"></span>
+                                </div>
+                                <div class="stepper">
+                                    <button type="button" class="stepper-btn" onclick="adjustCount('adults', -1)" aria-label="Decrease adults">&minus;</button>
+                                    <span class="stepper-value" id="count-adults">0</span>
+                                    <button type="button" class="stepper-btn" onclick="adjustCount('adults', 1)" aria-label="Increase adults">+</button>
+                                </div>
+                            </div>
+
+                            <!-- Kids 5-16 Stepper -->
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <label class="block text-sm font-semibold">Kids (5-16)</label>
+                                    <span class="text-xs" style="color:var(--fg-muted);">8 &euro; per individual</span>
+                                    <span class="text-[10px] block" style="color:var(--accent-light);" id="remaining-kids516"></span>
+                                </div>
+                                <div class="stepper">
+                                    <button type="button" class="stepper-btn" onclick="adjustCount('kids516', -1)" aria-label="Decrease kids 5 to 16">&minus;</button>
+                                    <span class="stepper-value" id="count-kids516">0</span>
+                                    <button type="button" class="stepper-btn" onclick="adjustCount('kids516', 1)" aria-label="Increase kids 5 to 16">+</button>
+                                </div>
+                            </div>
+
+                            <!-- Kids Under 5 Stepper -->
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <label class="block text-sm font-semibold">Kids (Under 5)</label>
+                                    <span class="text-xs" style="color:var(--success);">Free admission</span>
+                                    <span class="text-[10px] block" style="color:var(--accent-light);" id="remaining-kidsU5"></span>
+                                </div>
+                                <div class="stepper">
+                                    <button type="button" class="stepper-btn" onclick="adjustCount('kidsU5', -1)" aria-label="Decrease kids under 5">&minus;</button>
+                                    <span class="stepper-value" id="count-kidsU5">0</span>
+                                    <button type="button" class="stepper-btn" onclick="adjustCount('kidsU5', 1)" aria-label="Increase kids under 5">+</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Dynamic Attendee Names Section (Primary is guest 1, rest are dynamically collected here) -->
+                    <div class="card mb-6" id="card-attendee-names" style="display: none;">
+                        <h3 class="font-bold text-xs tracking-widest uppercase mb-3" style="color:var(--accent-light);">Attendee Rosters</h3>
+                        <p class="text-xs mb-4" style="color:var(--fg-muted);">Please write the full name of every individual in your group for personal check-in records.</p>
+                        <div id="attendee-names-fields" class="space-y-4"></div>
+                    </div>
+
+                    <!-- Form Section: Summary -->
+                    <div class="card mb-6" style="background:rgba(107,45,123,0.15);">
+                        <h3 class="font-bold text-xs tracking-widest uppercase mb-3" style="color:var(--accent-light);">Price Summary</h3>
+                        <div id="price-breakdown" class="text-sm"></div>
+                        <div class="price-total mt-4" id="price-total">
+                            <span>Total Due:</span><span>0.00 &euro;</span>
+                        </div>
+                    </div>
+
+                    <!-- Form Section: Terms -->
+                    <div class="mb-6">
+                        <label class="flex items-start gap-3 cursor-pointer text-xs" style="color:var(--fg-muted);">
+                            <input type="checkbox" id="reg-terms" class="mt-1" style="accent-color:var(--accent);" required>
+                            <span>I confirm that the list of names and contact details entered are accurate, and I agree to proceed to secure bank transfer.</span>
+                        </label>
+                        <div class="text-xs mt-1" style="color:var(--danger);display:none;" id="err-terms">Agreement to verification terms is mandatory to proceed.</div>
+                    </div>
+
+                    <button type="submit" class="btn-primary w-full flex items-center justify-center gap-2">
+                        <span>Continue to Invoice &amp; Payment</span>
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- ====================================
+         PAGE: PAYMENT (INSTRUCTIONS)
+         ==================================== -->
+    <div id="page-payment" class="page">
+        <div class="min-h-screen py-12 px-4 relative z-10">
+            <div class="max-w-[560px] mx-auto">
+                <button class="btn-ghost mb-6" onclick="navigate('register')">
+                    <i class="fa-solid fa-arrow-left mr-2"></i> Edit Registry Details
+                </button>
+
+                <h2 class="font-display font-bold text-3xl mb-1 text-white">Complete Bank Transfer</h2>
+                <p class="text-sm mb-8" style="color:var(--fg-muted);">Your transaction reference code has been compiled. Initiate a SEPA transfer from your banking app to complete the transaction.</p>
+
+                <div class="card mb-6" id="payment-summary"></div>
+
+                <div class="divider mb-6"></div>
+
+                <!-- Step-by-Step Payment Instructions -->
+                <div class="space-y-5">
+                    <div>
+                        <label class="block text-xs font-semibold uppercase mb-2" style="color:var(--fg-muted);">Recipient IBAN Account</label>
+                        <div class="flex items-center gap-2">
+                            <code class="flex-1 font-mono text-sm p-3 rounded bg-[#0A0216] select-all border border-[#3E1A52]" id="pay-iban">FR76 3000 4028 3700 0100 0232 275</code>
+                            <button class="copy-btn" onclick="copyText(document.getElementById('pay-iban').textContent, this)" aria-label="Copy IBAN">
+                                <i class="fa-regular fa-copy"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold uppercase mb-2" style="color:var(--fg-muted);">Exact Transfer Amount</label>
+                        <div class="flex items-center gap-2">
+                            <code class="flex-1 font-mono text-lg font-bold p-3 rounded bg-[#0A0216] select-all border border-[#3E1A52]" id="pay-amount">0.00 EUR</code>
+                            <button class="copy-btn" onclick="copyText(document.getElementById('pay-amount').textContent, this)" aria-label="Copy Amount">
+                                <i class="fa-regular fa-copy"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold uppercase mb-2" style="color:var(--fg-muted);">Mandatory Transfer Memo/Reference</label>
+                        <div class="flex items-center gap-2">
+                            <code class="flex-1 font-mono text-base font-bold p-3 rounded bg-[#0A0216] select-all border border-[#3E1A52]" style="color:var(--accent-light);" id="pay-ref">GARBA-XXXX-XXXX</code>
+                            <button class="copy-btn" onclick="copyText(document.getElementById('pay-ref').textContent, this)" aria-label="Copy Reference">
+                                <i class="fa-regular fa-copy"></i>
+                            </button>
+                        </div>
+                        <p class="text-[11px] mt-2 leading-relaxed" style="color:var(--accent-light);">
+                            <i class="fa-solid fa-triangle-exclamation mr-1"></i> You must include this reference in your bank transfer memo so we can link your payment to your ticket!
+                        </p>
+                    </div>
+                </div>
+
+                <div class="divider my-8"></div>
+
+                <!-- Complete Action Buttons -->
+                <button class="btn-primary w-full flex items-center justify-center gap-2 text-lg py-4 mb-4" onclick="confirmPayment()">
+                    <i class="fa-solid fa-circle-check"></i> I Have Completed the Transfer
+                </button>
+                <p class="text-xs text-center" style="color:var(--fg-muted);">Your registration passes will be compiled as pending and instantly ready for preview.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ====================================
+         PAGE: TICKET (PASS VIEW & DOWNLOAD)
+         ==================================== -->
+    <div id="page-ticket" class="page">
+        <div class="min-h-screen py-12 px-4 relative z-10">
+            <div class="max-w-[560px] mx-auto text-center">
+                
+                <div class="inline-flex items-center justify-center w-16 h-16 rounded-full mb-4 bg-green-500/10 border border-green-500/20" style="color:var(--success);">
+                    <i class="fa-solid fa-check text-2xl"></i>
+                </div>
+                <h2 class="font-display font-bold text-3xl mb-1 text-white">Registration Locked!</h2>
+                <p class="text-sm mb-8" style="color:var(--fg-muted);">Your digital e-ticket passes are shown below. Kindly download the PDF voucher for offline scanning.</p>
+
+                <!-- Clean Styled Digital Ticket Render -->
+                <div class="card mb-6 text-left relative overflow-hidden" style="border-color:var(--accent); background: linear-gradient(135deg, #1E0E3D 0%, #0C0015 100%);">
+                    <div style="position:absolute; top:0; right:0; width:120px; height:120px; background:linear-gradient(135deg, var(--accent), transparent); opacity:0.12; border-radius: 0 0 0 100px; pointer-events: none;"></div>
+                    
+                    <div class="text-center mb-6">
+                        <img src="https://i.ibb.co/P0dQXyT/logo-removebg-preview.png" alt="Logo" style="max-width:180px; width:100%; margin:0 auto;" onerror="this.style.display='none'">
+                        <p class="text-xs tracking-widest uppercase mt-2" style="color:var(--accent-light);">Official Entry Pass</p>
+                    </div>
+
+                    <!-- Attendee Roster Stack inside Ticket -->
+                    <div id="ticket-details" class="space-y-4 text-sm"></div>
+
+                    <div class="divider my-4"></div>
+
+                    <!-- Ticket Core Metadata Row -->
+                    <div class="grid grid-cols-2 gap-4 text-xs mb-6" style="color:var(--fg-muted);">
+                        <div>
+                            <span class="block text-[10px] uppercase">Venue Location</span>
+                            <span class="font-semibold text-white">Salle Polyvalente Gali, Grenoble</span>
+                        </div>
+                        <div>
+                            <span class="block text-[10px] uppercase">Date &amp; Schedule</span>
+                            <span class="font-semibold text-white">10th Oct 2026, 4PM - 7PM</span>
+                        </div>
+                    </div>
+
+                    <!-- Realtime Interactive QR Generation Box -->
+                    <div class="text-center mb-4 bg-white p-4 rounded-xl inline-block mx-auto" style="display:block; max-width:180px;">
+                        <div id="ticket-qr" class="inline-block"></div>
+                    </div>
+
+                    <div class="text-center">
+                        <span class="block text-[10px] uppercase tracking-wider" style="color:var(--fg-muted);">System Reference ID</span>
+                        <code class="font-mono text-base font-bold" style="color:var(--accent-light);" id="ticket-ref-display">GARBA-XXXX-XXXX</code>
+                    </div>
+                </div>
+
+                <!-- Controls Wrapper -->
+                <div class="flex flex-col gap-3">
+                    <button class="btn-download w-full flex items-center justify-center gap-2 py-4" id="btn-download-pdf" onclick="downloadPDF()">
+                        <i class="fa-solid fa-file-arrow-down"></i> Download Voucher (PDF)
+                    </button>
+                    
+                    <button class="btn-secondary w-full" onclick="navigate('landing')">
+                        <i class="fa-solid fa-house"></i> Return to Homepage
+                    </button>
+                    
+                    <button class="btn-ghost text-xs" onclick="window.print()">
+                        <i class="fa-solid fa-print"></i> Native Page Print
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- ====================================
+         PAGE: SCANNER (ORGANIZER ENTRY GATE)
+         ==================================== -->
+    <div id="page-scanner" class="page">
+        <div class="min-h-screen py-16 px-4 relative z-10">
+            <div class="max-w-[560px] mx-auto">
+                
+                <div class="flex items-center justify-between mb-8">
+                    <div>
+                        <h2 class="font-display font-bold text-3xl text-white">Entry Gate Check-In</h2>
+                        <p class="text-sm" style="color:var(--fg-muted);">Live camera QR verification engine.</p>
+                    </div>
+                    <button class="btn-ghost" onclick="navigate('stats')">
+                        <i class="fa-solid fa-chart-line mr-1"></i> Roster
+                    </button>
+                </div>
+
+                <!-- Video Scan Viewport Frame -->
+                <div id="scanner-region" class="mb-6"></div>
+
+                <div class="flex gap-3 mb-6">
+                    <button class="btn-primary flex-1" id="btn-start-scan" onclick="startScanner()">
+                        <i class="fa-solid fa-camera mr-2"></i> Ignite Camera
+                    </button>
+                    <button class="btn-secondary" id="btn-stop-scan" onclick="stopScanner()" style="display:none;">
+                        <i class="fa-solid fa-video-slash"></i> Terminate
+                    </button>
+                </div>
+
+                <!-- Keyboard Manual Lookup Field -->
+                <div class="card mb-6">
+                    <p class="text-xs font-semibold mb-2" style="color:var(--fg-muted);">Emergency Manual Overrides</p>
+                    <div class="flex gap-2">
+                        <input type="text" id="manual-ref" class="form-input font-mono uppercase" placeholder="GARBA-XXXX-XXXX" aria-label="Reference ID">
+                        <button class="btn-primary whitespace-nowrap" onclick="manualCheckIn()">Check-In</button>
+                    </div>
+                </div>
+
+                <!-- Scanner Live Execution Feed Logs -->
+                <div class="card mb-6" id="scan-result" style="display:none;"></div>
+
+                <div class="card">
+                    <h3 class="font-bold text-xs tracking-widest uppercase mb-3" style="color:var(--accent-light);">Gate Traffic Registry</h3>
+                    <div id="recent-checkins" class="space-y-3"></div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- ====================================
+         PAGE: STATS (ORGANIZER DASHBOARD)
+         ==================================== -->
+    <div id="page-stats" class="page">
+        <div class="min-h-screen py-16 px-4 relative z-10">
+            <div class="max-w-[1100px] mx-auto">
+                
+                <!-- Stats Header -->
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+                    <div>
+                        <h2 class="font-display font-bold text-3xl text-white">Administrative Portal</h2>
+                        <p class="text-sm" style="color:var(--fg-muted);">Live metrics dashboard and registrant ledger.</p>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <button class="btn-primary text-sm" onclick="exportCSV()">
+                            <i class="fa-solid fa-file-csv mr-1"></i> Export Master Ledger (.CSV)
+                        </button>
+                        <button class="btn-secondary text-sm" onclick="navigate('scanner')">
+                            <i class="fa-solid fa-camera mr-1"></i> Open scanner
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Analytics Metrics Card Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8" id="stats-grid">
+                    <!-- Cards will be populated dynamically -->
+                </div>
+
+                <!-- Group Count Breakdown Statistics Bars -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                    <div class="card lg:col-span-2">
+                        <h3 class="font-bold text-xs tracking-widest uppercase mb-4" style="color:var(--accent-light);">Assembly Allocations</h3>
+                        <div id="stats-bars" class="space-y-4"></div>
+                    </div>
+                    
+                    <div class="card flex flex-col justify-between">
+                        <div>
+                            <h3 class="font-bold text-xs tracking-widest uppercase mb-4" style="color:var(--accent-light);">Check-In Performance Ratio</h3>
+                            <div class="text-center py-6">
+                                <div class="inline-block relative">
+                                    <div class="text-4xl font-extrabold text-white font-display" id="checkin-percentage">0%</div>
+                                    <span class="text-xs uppercase" style="color:var(--fg-muted);">Checked In</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="stat-bar-track mt-auto">
+                            <div class="stat-bar-fill bg-green-500" id="checkin-progress-bar" style="width: 0%;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Attendee Ledger Table & Filter Search -->
+                <div class="card">
+                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                        <h3 class="font-bold text-xs tracking-widest uppercase" style="color:var(--accent-light);">Registrant Roster Ledger</h3>
+                        <div class="relative max-w-sm w-full">
+                            <input type="text" id="roster-search" class="form-input text-xs" placeholder="Search by name, email, reference ID..." oninput="filterRoster()">
+                            <i class="fa-solid fa-magnifying-glass absolute right-3 top-3.5 text-xs text-gray-400"></i>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse text-xs">
+                            <thead>
+                                <tr class="border-b border-[#3E1A52]" style="color:var(--fg-muted);">
+                                    <th class="py-3 px-4 font-semibold uppercase">Ref ID</th>
+                                    <th class="py-3 px-4 font-semibold uppercase">Primary Contact</th>
+                                    <th class="py-3 px-4 font-semibold uppercase">Contact Details</th>
+                                    <th class="py-3 px-4 font-semibold uppercase">Attendees / Names</th>
+                                    <th class="py-3 px-4 font-semibold uppercase">Sum Paid</th>
+                                    <th class="py-3 px-4 font-semibold uppercase">Check-In Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="roster-table-body" class="divide-y divide-[#1D0C38]">
+                                <!-- Rows dynamic insertion point -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Live Decorative Petal Fall Overlay Canvas -->
+    <canvas id="particles-canvas" class="fixed inset-0 pointer-events-none z-0"></canvas>
+
+    <script>
+        // CONFIG holds basic event properties
+        const CONFIG = {
+            eventName: 'Garba Eve 2026',
+            eventDate: new Date('2026-10-10T16:00:00'),
+            venue: 'Salle Polyvalente Gali, 39 Rue Andre Rivoire, 38100 Grenoble',
+            iban: 'FR76 3000 4028 3700 0100 0232 275',
+            contactEmail: 'rakshitpande2012@gmail.com',
+            adminPassword: 'garba2026',
+            registrationDeadline: new Date('2026-09-30T00:00:00'),
+            capacity: { adults: 150, kids516: 40, kidsU5: 10 },
+            pricing: { adults: 12, kids5to16: 8, kidsUnder5: 0 }
+        };
+
+        // State Machine Storage
+        let currentRegistration = null;
+        let adminAuthenticated = false;
+        let scannerInstance = null;
+        let scannerRunning = false;
+        let currentPage = 'landing';
+        let counts = { adults: 0, kids516: 0, kidsU5: 0 };
+        let jsPDFReady = false;
+
+        // Check jsPDF status on startup
+        document.getElementById('jspdf-script').addEventListener('load', () => {
+            jsPDFReady = !!(window.jspdf && window.jspdf.jsPDF);
+        });
+
+        // LocalStorage helpers
+        function getRegistrations() {
+            try {
+                return JSON.parse(localStorage.getItem('garba_registrations') || '[]');
+            } catch (e) {
+                return [];
+            }
+        }
+
+        function saveRegistration(reg) {
+            try {
+                const list = getRegistrations();
+                list.push(reg);
+                localStorage.setItem('garba_registrations', JSON.stringify(list));
+            } catch (e) {
+                showToast('Registration storage error', 'error');
+            }
+        }
+
+        function updateRegistration(id, updates) {
+            try {
+                const list = getRegistrations();
+                const index = list.findIndex(r => r.id === id);
+                if (index !== -1) {
+                    Object.assign(list[index], updates);
+                    localStorage.setItem('garba_registrations', JSON.stringify(list));
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function getRegisteredCounts() {
+            const list = getRegistrations();
+            const counts = { adults: 0, kids516: 0, kidsU5: 0 };
+            list.forEach(r => {
+                counts.adults += (parseInt(r.adults) || 0);
+                counts.kids516 += (parseInt(r.kids516) || 0);
+                counts.kidsU5 += (parseInt(r.kidsU5) || 0);
+            });
+            return counts;
+        }
+
+        function getRemaining(type) {
+            const registered = getRegisteredCounts();
+            return Math.max(0, CONFIG.capacity[type] - registered[type]);
+        }
+
+        function isRegistrationOpen() {
+            const totalRemaining = getRemaining('adults') + getRemaining('kids516') + getRemaining('kidsU5');
+            return new Date() < CONFIG.registrationDeadline && totalRemaining > 0;
+        }
+
+        function generateRefCode() {
+            const ts = Date.now().toString(36).toUpperCase();
+            const rnd = Math.random().toString(36).substring(2, 6).toUpperCase();
+            return `GARBA-${ts}-${rnd}`;
+        }
+
+        function showToast(msg, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const el = document.createElement('div');
+            el.className = `toast toast-${type}`;
+            el.innerHTML = msg;
+            container.appendChild(el);
+            requestAnimationFrame(() => el.classList.add('show'));
+            setTimeout(() => {
+                el.classList.remove('show');
+                setTimeout(() => el.remove(), 400);
+            }, 3500);
+        }
+
+        function copyText(txt, btn) {
+            const clean = txt.replace(/\u20AC/g, 'EUR').trim();
+            navigator.clipboard.writeText(clean).then(() => {
+                btn.classList.add('copied');
+                const orig = btn.innerHTML;
+                btn.innerHTML = '<i class="fa-solid fa-check"></i>';
+                showToast('Copied to clipboard!', 'success');
+                setTimeout(() => {
+                    btn.classList.remove('copied');
+                    btn.innerHTML = orig;
+                }, 2000);
+            }).catch(() => {
+                // Clipboard fallback
+                const ta = document.createElement('textarea');
+                ta.value = clean;
+                ta.style.position = 'fixed'; ta.style.opacity = '0';
+                document.body.appendChild(ta); ta.select();
+                try {
+                    document.execCommand('copy');
+                    showToast('Copied to clipboard!', 'success');
+                } catch (err) {
+                    showToast('Failed to copy', 'error');
+                }
+                document.body.removeChild(ta);
+            });
+        }
+
+        function clearErrors() {
+            document.querySelectorAll('[id^="err-"]').forEach(el => el.style.display = 'none');
+            document.querySelectorAll('.form-input.error').forEach(el => el.classList.remove('error'));
+        }
+
+        // ====================================
+        // NAVIGATION SYSTEM
+        // ====================================
+        function navigate(page) {
+            if (currentPage === 'scanner' && scannerRunning) {
+                stopScanner();
+            }
+
+            const currentEl = document.getElementById(`page-${currentPage}`);
+            if (currentEl) currentEl.classList.remove('active');
+
+            currentPage = page;
+            const nextEl = document.getElementById(`page-${page}`);
+            if (nextEl) {
+                nextEl.classList.add('active');
+                window.scrollTo(0, 0);
+            }
+
+            const adminBar = document.getElementById('admin-bar');
+            if (adminAuthenticated && (page === 'scanner' || page === 'stats')) {
+                adminBar.classList.add('show');
+            } else {
+                adminBar.classList.remove('show');
+            }
+
+            // Update Tab Active styles
+            document.getElementById('nav-scanner').className = (page === 'scanner' ? 'active-tab' : '');
+            document.getElementById('nav-stats').className = (page === 'stats' ? 'active-tab' : '');
+
+            // Page Init Handlers
+            if (page === 'register') initRegisterPage();
+            if (page === 'payment') initPaymentPage();
+            if (page === 'ticket') initTicketPage();
+            if (page === 'scanner') initScannerPage();
+            if (page === 'stats') initStatsPage();
+            if (page === 'landing') updateLandingPage();
+        }
+
+        // ====================================
+        // PAGE: LANDING IMPLEMENTATION
+        // ====================================
+        function updateLandingPage() {
+            const isOpen = isRegistrationOpen();
+            const overlay = document.getElementById('reg-closed-overlay');
+            const ctaBtn = document.getElementById('btn-register-cta');
+
+            if (!isOpen) {
+                overlay.style.display = 'flex';
+                ctaBtn.style.display = 'none';
+            } else {
+                overlay.style.display = 'none';
+                ctaBtn.style.display = 'block';
+            }
+
+            const remA = getRemaining('adults');
+            const remK = getRemaining('kids516');
+            const remU = getRemaining('kidsU5');
+
+            document.getElementById('landing-capacity-display').innerHTML = `
+                <div class="grid grid-cols-3 gap-2">
+                    <div class="p-2 rounded bg-opacity-10" style="background-color:rgba(255,107,0,0.06);">
+                        <span class="block text-xs font-bold text-white">${remA}</span>
+                        <span class="text-[10px]" style="color:var(--fg-muted);">Adults Left</span>
+                    </div>
+                    <div class="p-2 rounded bg-opacity-10" style="background-color:rgba(255,107,0,0.06);">
+                        <span class="block text-xs font-bold text-white">${remK}</span>
+                        <span class="text-[10px]" style="color:var(--fg-muted);">Kids 5-16 Left</span>
+                    </div>
+                    <div class="p-2 rounded bg-opacity-10" style="background-color:rgba(255,107,0,0.06);">
+                        <span class="block text-xs font-bold text-white">${remU}</span>
+                        <span class="text-[10px]" style="color:var(--fg-muted);">Under 5 Left</span>
+                    </div>
+                </div>
+            `;
+
+            const totalLeft = remA + remK + remU;
+            const spotsEl = document.getElementById('spots-remaining');
+            if (totalLeft <= 0) {
+                spotsEl.textContent = 'SOLD OUT!';
+                spotsEl.style.color = 'var(--danger)';
+            } else {
+                spotsEl.textContent = `${totalLeft} registration spots available`;
+                spotsEl.style.color = 'var(--fg-muted)';
+            }
+        }
+
+        // ====================================
+        // BACKGROUND ANIMATED PETAL CANVAS
+        // ====================================
+        function initParticles() {
+            const canvas = document.getElementById('particles-canvas');
+            const ctx = canvas.getContext('2d');
+            let w = canvas.width = window.innerWidth;
+            let h = canvas.height = window.innerHeight;
+
+            window.addEventListener('resize', () => {
+                w = canvas.width = window.innerWidth;
+                h = canvas.height = window.innerHeight;
+            });
+
+            const colors = [
+                'rgba(255, 107, 0, 0.15)',   // Accent Glow Orange
+                'rgba(255, 183, 3, 0.15)',   // Accent Glow Gold
+                'rgba(107, 45, 123, 0.12)',  // Border Glow Purple
+                'rgba(220, 20, 60, 0.1)'     // Crimson Accent
+            ];
+
+            const particles = [];
+            for (let i = 0; i < 25; i++) {
+                particles.push({
+                    x: Math.random() * w,
+                    y: Math.random() * h,
+                    size: Math.random() * 6 + 4,
+                    speedX: Math.random() * 0.4 - 0.2,
+                    speedY: Math.random() * 0.3 + 0.1,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    rot: Math.random() * Math.PI * 2,
+                    rotSpeed: Math.random() * 0.01 + 0.005
+                });
+            }
+
+            function animate() {
+                ctx.clearRect(0, 0, w, h);
+                particles.forEach(p => {
+                    p.x += p.speedX;
+                    p.y += p.speedY;
+                    p.rot += p.rotSpeed;
+
+                    if (p.y > h + 10) {
+                        p.y = -10;
+                        p.x = Math.random() * w;
+                    }
+                    if (p.x > w + 10) p.x = -10;
+                    if (p.x < -10) p.x = w + 10;
+
+                    ctx.save();
+                    ctx.translate(p.x, p.y);
+                    ctx.rotate(p.rot);
+                    ctx.fillStyle = p.color;
+
+                    // Draw organic stylized traditional flower petal shape
+                    ctx.beginPath();
+                    ctx.ellipse(0, 0, p.size, p.size * 1.6, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+                });
+                requestAnimationFrame(animate);
+            }
+            animate();
+        }
+
+        // Countdown Timer Engine
+        function initCountdown() {
+            function update() {
+                const diff = CONFIG.eventDate - new Date();
+                if (diff <= 0) {
+                    clearInterval(intervalId);
+                    return;
+                }
+                const days = Math.floor(diff / 86400000);
+                const hrs = Math.floor((diff % 86400000) / 3600000);
+                const mins = Math.floor((diff % 3600000) / 60000);
+                const secs = Math.floor((diff % 60000) / 1000);
+
+                document.getElementById('cd-days').textContent = String(days).padStart(2, '0');
+                document.getElementById('cd-hours').textContent = String(hrs).padStart(2, '0');
+                document.getElementById('cd-mins').textContent = String(mins).padStart(2, '0');
+                document.getElementById('cd-secs').textContent = String(secs).padStart(2, '0');
+            }
+            const intervalId = setInterval(update, 1000);
+            update();
+        }
+
+        // ====================================
+        // PAGE: REGISTER IMPLEMENTATION
+        // ====================================
+        function initRegisterPage() {
+            if (!isRegistrationOpen()) {
+                navigate('landing');
+                showToast('Registration is closed', 'warning');
+                return;
+            }
+            counts = { adults: 0, kids516: 0, kidsU5: 0 };
+            updateStepperUI();
+            updatePriceSummary();
+            updateRemainingLabels();
+            document.getElementById('register-form').reset();
+            document.getElementById('card-attendee-names').style.display = 'none';
+        }
+
+        function updateRemainingLabels() {
+            document.getElementById('remaining-adults').textContent = `${getRemaining('adults')} spots left`;
+            document.getElementById('remaining-kids516').textContent = `${getRemaining('kids516')} spots left`;
+            document.getElementById('remaining-kidsU5').textContent = `${getRemaining('kidsU5')} spots left`;
+        }
+
+        function adjustCount(type, delta) {
+            const maxVal = CONFIG.capacity[type];
+            const current = counts[type];
+            const next = current + delta;
+
+            if (next < 0) return;
+            
+            const remaining = getRemaining(type);
+            if (delta > 0 && next > remaining) {
+                showToast(`Only ${remaining} spots left for this category`, 'warning');
+                return;
+            }
+
+            counts[type] = next;
+            updateStepperUI();
+            updatePriceSummary();
+            generateNameFields();
+        }
+
+        function updateStepperUI() {
+            document.getElementById('count-adults').textContent = counts.adults;
+            document.getElementById('count-kids516').textContent = counts.kids516;
+            document.getElementById('count-kidsU5').textContent = counts.kidsU5;
+        }
+
+        // Dynamically create Name Inputs for every individual beyond Primary
+        function generateNameFields() {
+            const container = document.getElementById('attendee-names-fields');
+            const outerCard = document.getElementById('card-attendee-names');
+            container.innerHTML = '';
+
+            const totalPeople = counts.adults + counts.kids516 + counts.kidsU5;
+
+            if (totalPeople <= 1) {
+                // Primary registrant covers Guest 1, hide card if total count is 1 or empty
+                outerCard.style.display = 'none';
+                return;
+            }
+
+            outerCard.style.display = 'block';
+            let fieldIndex = 2; // Guest 1 is the primary contact
+
+            // Adults (Skip 1 adult as they are Guest 1 / Primary Contact)
+            const primaryIsAdult = counts.adults > 0;
+            const startAdultIndex = primaryIsAdult ? 2 : 1;
+
+            for (let i = startAdultIndex; i <= counts.adults; i++) {
+                addNameFieldInput(`Guest ${fieldIndex} (Adult) Name`, `name-adult-${i}`, fieldIndex);
+                fieldIndex++;
+            }
+
+            // Kids 5-16
+            for (let i = 1; i <= counts.kids516; i++) {
+                addNameFieldInput(`Guest ${fieldIndex} (Kid 5-16) Name`, `name-kid516-${i}`, fieldIndex);
+                fieldIndex++;
+            }
+
+            // Kids Under 5
+            for (let i = 1; i <= counts.kidsU5; i++) {
+                addNameFieldInput(`Guest ${fieldIndex} (Kid Under 5) Name`, `name-kidU5-${i}`, fieldIndex);
+                fieldIndex++;
+            }
+        }
+
+        function addNameFieldInput(label, id, idx) {
+            const container = document.getElementById('attendee-names-fields');
+            const field = document.createElement('div');
+            field.className = 'animate-fade-in';
+            field.innerHTML = `
+                <label class="block text-xs font-semibold mb-1" for="guest-name-${idx}">${label} *</label>
+                <input type="text" id="guest-name-${idx}" class="form-input guest-name-input" data-label="${label}" placeholder="Enter full name for verification" required>
+                <div class="text-xs mt-1" style="color:var(--danger);display:none;" id="err-guest-${idx}">Name is required.</div>
+            `;
+            container.appendChild(field);
+        }
+
+        function updatePriceSummary() {
+            const p = CONFIG.pricing;
+            const aTotal = counts.adults * p.adults;
+            const kTotal = counts.kids516 * p.kids5to16;
+            const total = aTotal + kTotal;
+
+            let html = '';
+            if (counts.adults > 0) {
+                html += `<div class="price-row"><span>Adults (${counts.adults} &times; ${p.adults} &euro;)</span><span>${aTotal.toFixed(2)} &euro;</span></div>`;
+            }
+            if (counts.kids516 > 0) {
+                html += `<div class="price-row"><span>Kids 5-16 (${counts.kids516} &times; ${p.kids5to16} &euro;)</span><span>${kTotal.toFixed(2)} &euro;</span></div>`;
+            }
+            if (counts.kidsU5 > 0) {
+                html += `<div class="price-row"><span>Kids Under 5 (${counts.kidsU5} &times; Free)</span><span>0.00 &euro;</span></div>`;
+            }
+            if (html === '') {
+                html = '<div class="text-xs text-center py-2" style="color:var(--fg-muted);">No tickets selected yet.</div>';
+            }
+
+            document.getElementById('price-breakdown').innerHTML = html;
+            document.getElementById('price-total').innerHTML = `<span>Total Due:</span><span>${total.toFixed(2)} &euro;</span>`;
+        }
+
+        // Form Submit Handler
+        document.getElementById('register-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            clearErrors();
+
+            const nameEl = document.getElementById('reg-name');
+            const emailEl = document.getElementById('reg-email');
+            const phoneEl = document.getElementById('reg-phone');
+            const termsEl = document.getElementById('reg-terms');
+
+            let valid = true;
+
+            if (!nameEl.value.trim()) {
+                nameEl.classList.add('error');
+                document.getElementById('err-name').style.display = 'block';
+                valid = false;
+            }
+
+            const emailRx = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRx.test(emailEl.value.trim())) {
+                emailEl.classList.add('error');
+                document.getElementById('err-email').style.display = 'block';
+                valid = false;
+            }
+
+            if (!phoneEl.value.trim()) {
+                phoneEl.classList.add('error');
+                document.getElementById('err-phone').style.display = 'block';
+                valid = false;
+            }
+
+            // Ensure at least one ticket is requested
+            const totalTickets = counts.adults + counts.kids516 + counts.kidsU5;
+            if (totalTickets === 0) {
+                showToast('Please select at least one ticket to register', 'warning');
+                return;
+            }
+
+            // Dynamic attendee names validation
+            const attendeeNames = [nameEl.value.trim()]; // First guest is primary contact
+            const guestInputs = document.querySelectorAll('.guest-name-input');
+            
+            guestInputs.forEach(input => {
+                if (!input.value.trim()) {
+                    input.classList.add('error');
+                    const errEl = input.nextElementSibling;
+                    if (errEl) errEl.style.display = 'block';
+                    valid = false;
+                } else {
+                    attendeeNames.push(input.value.trim());
+                }
+            });
+
+            if (!termsEl.checked) {
+                document.getElementById('err-terms').style.display = 'block';
+                valid = false;
+            }
+
+            if (!valid) {
+                showToast('Please correct the validation errors in the registration form.', 'error');
+                return;
+            }
+
+            // Lock and save active compilation data
+            const refCode = generateRefCode();
+            currentRegistration = {
+                id: refCode,
+                name: nameEl.value.trim(),
+                email: emailEl.value.trim(),
+                phone: phoneEl.value.trim(),
+                adults: counts.adults,
+                kids516: counts.kids516,
+                kidsU5: counts.kidsU5,
+                attendees: attendeeNames, // Collection of all guest names
+                totalPeople: totalTickets,
+                totalAmount: (counts.adults * CONFIG.pricing.adults) + (counts.kids516 * CONFIG.pricing.kids5to16),
+                registeredAt: new Date().toISOString(),
+                checkedIn: false,
+                checkedInAt: null
+            };
+
+            navigate('payment');
+        });
+
+        // ====================================
+        // PAGE: PAYMENT IMPLEMENTATION
+        // ====================================
+        function initPaymentPage() {
+            if (!currentRegistration) {
+                navigate('register');
+                return;
+            }
+            const r = currentRegistration;
+            const p = CONFIG.pricing;
+
+            let invoiceRows = `
+                <div class="flex justify-between py-1 text-sm border-b border-[#301648]">
+                    <span>Transaction ID:</span><span class="font-mono text-xs text-white">${r.id}</span>
+                </div>
+                <div class="flex justify-between py-1 text-sm border-b border-[#301648]">
+                    <span>Primary Contact:</span><span class="text-white">${r.name}</span>
+                </div>
+            `;
+            if (r.adults > 0) invoiceRows += `<div class="flex justify-between py-1 text-xs text-gray-400"><span>Adult Tickets (${r.adults})</span><span>${(r.adults * p.adults).toFixed(2)} &euro;</span></div>`;
+            if (r.kids516 > 0) invoiceRows += `<div class="flex justify-between py-1 text-xs text-gray-400"><span>Kids 5-16 Tickets (${r.kids516})</span><span>${(r.kids516 * p.kids5to16).toFixed(2)} &euro;</span></div>`;
+            if (r.kidsU5 > 0) invoiceRows += `<div class="flex justify-between py-1 text-xs text-gray-400"><span>Kids Under 5 Tickets (${r.kidsU5})</span><span>0.00 &euro;</span></div>`;
+
+            document.getElementById('payment-summary').innerHTML = `
+                <h3 class="font-bold text-xs tracking-widest uppercase mb-3" style="color:var(--accent-light);">Invoice Overview</h3>
+                <div class="space-y-2 mb-4">${invoiceRows}</div>
+                <div class="flex justify-between items-center pt-2 border-t border-dashed border-[#5A206C]">
+                    <span class="font-bold text-sm text-white">Invoice Total Paid/Due:</span>
+                    <span class="text-xl font-bold font-display" style="color:var(--accent-light);">${r.totalAmount.toFixed(2)} &euro;</span>
+                </div>
+            `;
+
+            document.getElementById('pay-amount').textContent = `${r.totalAmount.toFixed(2)} EUR`;
+            document.getElementById('pay-ref').textContent = r.id;
+        }
+
+        function confirmPayment() {
+            if (!currentRegistration) return;
+            saveRegistration(currentRegistration);
+            showToast('Registration compiled successfully!', 'success');
+            navigate('ticket');
+        }
+
+        // ====================================
+        // PAGE: TICKET IMPLEMENTATION
+        // ====================================
+        function initTicketPage() {
+            if (!currentRegistration) {
+                navigate('landing');
+                return;
+            }
+            const r = currentRegistration;
+
+            // Render Attendee Names List inside ticket card
+            let namesList = '';
+            r.attendees.forEach((name, i) => {
+                namesList += `<div class="flex items-center gap-2"><i class="fa-solid fa-circle-user" style="color:var(--accent-light); font-size:10px;"></i> <span class="text-white font-medium">${name}</span> <span class="text-[10px] text-gray-400 font-mono">(${i === 0 ? 'Primary contact' : `Guest ${i+1}`})</span></div>`;
+            });
+
+            document.getElementById('ticket-details').innerHTML = `
+                <div>
+                    <span class="block text-[10px] uppercase text-gray-400">Contact Email</span>
+                    <span class="text-white">${r.email}</span>
+                </div>
+                <div>
+                    <span class="block text-[10px] uppercase text-gray-400">Total Group Assembly (${r.totalPeople} Pass/es)</span>
+                    <div class="space-y-1 mt-1 bg-black/35 p-3 rounded-lg border border-[#3E1A52]">${namesList}</div>
+                </div>
+            `;
+
+            document.getElementById('ticket-ref-display').textContent = r.id;
+
+            // Generate real-time interactive local QR Canvas
+            const qrContainer = document.getElementById('ticket-qr');
+            qrContainer.innerHTML = '';
+            new QRCode(qrContainer, {
+                text: r.id,
+                width: 140,
+                height: 140,
+                colorDark: '#000000',
+                colorLight: '#ffffff',
+                correctLevel: QRCode.CorrectLevel.H
+            });
+        }
+
+        // ==========================================
+        // TICKET: HIGH-PREMIUM PDF GENERATOR (A4)
+        // ==========================================
+        async function downloadPDF() {
+            const btn = document.getElementById('btn-download-pdf');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i> Generating Ticket...';
+            }
+
+            if (!currentRegistration) {
+                showToast('No registration data available', 'error');
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fa-solid fa-download mr-2"></i> Download Ticket (PDF)';
+                }
+                return;
+            }
+
+            let JsPDF = null;
+            if (window.jspdf && window.jspdf.jsPDF) {
+                JsPDF = window.jspdf.jsPDF;
+            } else if (window.jsPDF) {
+                JsPDF = window.jsPDF;
+            }
+
+            if (!JsPDF) {
+                showToast('PDF library not loaded. Use browser print instead.', 'error');
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fa-solid fa-download mr-2"></i> Download Ticket (PDF)';
+                }
+                return;
+            }
+
+            // Image Loader (Fetch Mode first, Canvas fallback)
+            async function loadImage(url) {
+                try {
+                    const response = await fetch(url, { mode: 'cors' });
+                    if (response.ok) {
+                        const blob = await response.blob();
+                        const dataUrl = await new Promise((resolve) => {
+                            const reader = new FileReader();
+                            reader.onloadend = () => resolve(reader.result);
+                            reader.onerror = () => resolve(null);
+                            reader.readAsDataURL(blob);
+                        });
+                        if (dataUrl) {
+                            return await new Promise((resolve) => {
+                                const img = new Image();
+                                img.onload = () => resolve({ dataUrl, width: img.naturalWidth || img.width, height: img.naturalHeight || img.height });
+                                img.onerror = () => resolve(null);
+                                img.src = dataUrl;
+                            });
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Fallback canvas image loader executed', e);
+                }
+
+                return new Promise((resolve) => {
+                    const img = new Image();
+                    img.crossOrigin = 'Anonymous';
+                    img.onload = () => {
+                        try {
+                            const canvas = document.createElement('canvas');
+                            canvas.width = img.naturalWidth || img.width || 300;
+                            canvas.height = img.naturalHeight || img.height || 150;
+                            const ctx = canvas.getContext('2d');
+                            ctx.drawImage(img, 0, 0);
+                            resolve({ dataUrl: canvas.toDataURL('image/png'), width: canvas.width, height: canvas.height });
+                        } catch (err) {
+                            resolve(null);
+                        }
+                    };
+                    img.onerror = () => resolve(null);
+                    img.src = url;
+                });
+            }
+
+            try {
+                const r = currentRegistration;
+                const p = CONFIG.pricing;
+                const doc = new JsPDF('p', 'mm', 'a4'); // A4 Size: 210mm x 297mm
+
+                // 1. Warm Soft Ivory Background Block
+                doc.setFillColor(253, 251, 247);
+                doc.rect(0, 0, 210, 297, 'F');
+
+                // Symmetrical Golden Marigold Trim Frame
+                doc.setDrawColor(255, 183, 3);
+                doc.setLineWidth(1.2);
+                doc.rect(12, 12, 186, 273, 'S');
+
+                // Symmetrical Inner White Ticket Container
+                doc.setFillColor(255, 255, 255);
+                doc.rect(15, 15, 180, 267, 'F');
+
+                // 2. Midnight Velvet Header Banner (Height: 55mm, Y: 15..70)
+                doc.setFillColor(18, 0, 33);
+                doc.rect(15, 15, 180, 55, 'F');
+
+                // Gold Highlight Trim Banner Bottom
+                doc.setFillColor(255, 183, 3);
+                doc.rect(15, 70, 180, 2.5, 'F');
+
+                // Load Logo & Calculate Sizing ratios
+                const logoUrl = 'https://i.ibb.co/P0dQXyT/logo-removebg-preview.png';
+                const logoObj = await loadImage(logoUrl);
+
+                if (logoObj && logoObj.dataUrl) {
+                    const maxWidth = 70;
+                    const maxHeight = 30;
+                    let w = logoObj.width;
+                    let h = logoObj.height;
+                    const ratio = w / h;
+
+                    if (w > maxWidth) { w = maxWidth; h = w / ratio; }
+                    if (h > maxHeight) { h = maxHeight; w = h * ratio; }
+
+                    const x = 105 - (w / 2);
+                    const y = 18 + ((32 - h) / 2);
+                    doc.addImage(logoObj.dataUrl, 'PNG', x, y, w, h);
+                } else {
+                    doc.setFont('helvetica', 'bold');
+                    doc.setFontSize(26);
+                    doc.setTextColor(255, 107, 0);
+                    doc.text('GARBA EVE', 105, 34, { align: 'center' });
+                }
+
+                // Subtitle Header
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(11);
+                doc.setTextColor(255, 183, 3);
+                doc.text('OFFICIAL ENTRY PASS • GARBA EVE 2026', 105, 56, { align: 'center' });
+
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(9);
+                doc.setTextColor(230, 220, 240);
+                doc.text('Indian Community France – Grenoble', 105, 63, { align: 'center' });
+
+                // Left Column geometry
+                const leftX = 23;
+                const leftWidth = 95;
+
+                // --- WHEN & WHERE Box ---
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(10);
+                doc.setTextColor(255, 107, 0);
+                doc.text('WHEN & WHERE', leftX, 83);
+
+                doc.setFillColor(255, 249, 240);
+                doc.rect(leftX, 86, leftWidth, 27, 'F');
+                doc.setDrawColor(255, 220, 180);
+                doc.rect(leftX, 86, leftWidth, 27, 'S');
+
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(10);
+                doc.setTextColor(18, 0, 33);
+                doc.text('10th October 2026 | 16:00 – 19:00', leftX + 4, 94);
+
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(9.5);
+                doc.setTextColor(70, 60, 80);
+                doc.text('Salle Polyvalente Gali', leftX + 4, 101);
+                doc.text('Grenoble, France', leftX + 4, 107);
+
+                // --- ATTENDEE ROSTER Box ---
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(10);
+                doc.setTextColor(255, 107, 0);
+                doc.text('ATTENDEE DETAIL ROSTER', leftX, 122);
+
+                // Dynamically scale height of roster box based on attendee list
+                const nameCount = r.attendees.length;
+                const fieldHeight = Math.max(30, 12 + (nameCount * 5));
+
+                doc.setFillColor(255, 249, 240);
+                doc.rect(leftX, 125, leftWidth, fieldHeight, 'F');
+                doc.setDrawColor(255, 220, 180);
+                doc.rect(leftX, 125, leftWidth, fieldHeight, 'S');
+
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(9.5);
+                doc.setTextColor(18, 0, 33);
+                doc.text(`Primary Contact: ${r.name}`, leftX + 4, 131);
+                
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(8.5);
+                doc.setTextColor(70, 60, 80);
+                doc.text(`Contact Phone: ${r.phone}`, leftX + 4, 136);
+
+                // List each individual attendee name clearly inside PDF
+                let nameY = 142;
+                r.attendees.forEach((name, idx) => {
+                    if (nameY < (123 + fieldHeight)) {
+                        doc.text(`• Guest ${idx + 1}: ${name}`, leftX + 4, nameY);
+                        nameY += 5;
+                    }
+                });
+
+                // --- INVOICE BREAKDOWN Table ---
+                const tableTop = 134 + fieldHeight;
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(10);
+                doc.setTextColor(255, 107, 0);
+                doc.text('TICKET BREAKDOWN', leftX, tableTop);
+
+                let tableY = tableTop + 7;
+                const rows = [
+                    ['Adults', `${r.adults} × ${p.adults} €`, `${(r.adults * p.adults).toFixed(2)} €`],
+                    ['Kids (5-16)', `${r.kids516} × ${p.kids5to16} €`, `${(r.kids516 * p.kids5to16).toFixed(2)} €`],
+                    ['Kids (Under 5)', `${r.kidsU5} × Free`, '0.00 €']
+                ];
+
+                rows.forEach(([label, count, price], idx) => {
+                    if (idx % 2 === 0) {
+                        doc.setFillColor(248, 245, 250);
+                        doc.rect(leftX, tableY - 5.5, leftWidth, 7.5, 'F');
+                    }
+                    doc.setFont('helvetica', 'normal');
+                    doc.setFontSize(9);
+                    doc.setTextColor(70, 60, 80);
+                    doc.text(label, leftX + 2, tableY);
+                    doc.text(count, leftX + 42, tableY);
+
+                    doc.setFont('helvetica', 'bold');
+                    doc.setTextColor(18, 0, 33);
+                    doc.text(price, leftX + leftWidth - 3, tableY, { align: 'right' });
+                    tableY += 8;
+                });
+
+                doc.setDrawColor(255, 183, 3);
+                doc.setLineWidth(0.6);
+                doc.line(leftX, tableY, leftX + leftWidth, tableY);
+                tableY += 7;
+
+                // Total Row
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(11);
+                doc.setTextColor(18, 0, 33);
+                doc.text('TOTAL AMOUNT PAID', leftX + 2, tableY);
+
+                doc.setFontSize(13);
+                doc.setTextColor(255, 107, 0);
+                doc.text(`${r.totalAmount.toFixed(2)} €`, leftX + leftWidth - 3, tableY, { align: 'right' });
+
+                // Right Column geometry (Symmetric QR card)
+                const rightX = 125;
+                const rightWidth = 63;
+                const cardTopY = 86;
+                const cardHeight = 132;
+
+                doc.setFillColor(255, 255, 255);
+                doc.rect(rightX, cardTopY, rightWidth, cardHeight, 'F');
+                doc.setDrawColor(255, 183, 3);
+                doc.setLineWidth(0.8);
+                doc.rect(rightX, cardTopY, rightWidth, cardHeight, 'S');
+
+                // Card Header Banner
+                doc.setFillColor(255, 248, 235);
+                doc.rect(rightX, cardTopY, rightWidth, 12, 'F');
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(9.5);
+                doc.setTextColor(18, 0, 33);
+                doc.text('ENTRY QR CODE', rightX + (rightWidth / 2), cardTopY + 8, { align: 'center' });
+
+                // Inject Local Dynamic QR Code Canvas
+                const qrImgY = cardTopY + 16;
+                const qrSize = 48;
+                const qrImgX = rightX + ((rightWidth - qrSize) / 2);
+
+                try {
+                    const qrEl = document.getElementById('ticket-qr');
+                    const qrCanvas = qrEl ? (qrEl.querySelector('canvas') || qrEl.querySelector('img')) : null;
+                    if (qrCanvas) {
+                        const qrData = (qrCanvas instanceof HTMLCanvasElement) ? qrCanvas.toDataURL('image/png') : qrCanvas.src;
+                        doc.addImage(qrData, 'PNG', qrImgX, qrImgY, qrSize, qrSize);
+                    } else {
+                        throw new Error('No QR source found');
+                    }
+                } catch (e) {
+                    doc.setDrawColor(200, 200, 200);
+                    doc.rect(qrImgX, qrImgY, qrSize, qrSize, 'S');
+                }
+
+                // Reference ID Badge Container
+                const badgeY = qrImgY + qrSize + 8;
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(7.5);
+                doc.setTextColor(120, 120, 120);
+                doc.text('SYSTEM REFERENCE ID', rightX + (rightWidth / 2), badgeY, { align: 'center' });
+
+                doc.setFillColor(244, 240, 248);
+                doc.rect(rightX + 6, badgeY + 3, rightWidth - 12, 12, 'F');
+                doc.setFont('courier', 'bold');
+                doc.setFontSize(11);
+                doc.setTextColor(18, 0, 33);
+                doc.text(String(r.id), rightX + (rightWidth / 2), badgeY + 10.5, { align: 'center' });
+
+                // Verified Pill
+                const pillY = badgeY + 19;
+                doc.setFillColor(34, 139, 34);
+                doc.rect(rightX + 8, pillY, rightWidth - 16, 9, 'F');
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(8);
+                doc.setTextColor(255, 255, 255);
+                doc.text('REGISTERED & PAID', rightX + (rightWidth / 2), pillY + 6, { align: 'center' });
+
+                doc.setFont('helvetica', 'italic');
+                doc.setFontSize(7.5);
+                doc.setTextColor(120, 110, 130);
+                doc.text('Scan at check-in desk', rightX + (rightWidth / 2), pillY + 14.5, { align: 'center' });
+
+                // Symmetrical Scissor Cutout design line
+                const cutY = 236;
+                doc.setDrawColor(200, 180, 150);
+                doc.setLineWidth(0.5);
+                doc.setLineDashPattern([3, 3], 0);
+                doc.line(18, cutY, 192, cutY);
+                doc.setLineDashPattern([], 0);
+
+                // Symmetrical notches
+                doc.setFillColor(253, 251, 247);
+                doc.circle(15, cutY, 4.5, 'F');
+                doc.circle(195, cutY, 4.5, 'F');
+                doc.setDrawColor(255, 183, 3);
+                doc.circle(15, cutY, 4.5, 'S');
+                doc.circle(195, cutY, 4.5, 'S');
+
+                // Symmetrical Bottom Footer Layout Box (Height: 32mm, Y: 245..277)
+                doc.setFillColor(18, 0, 33);
+                doc.rect(15, 245, 180, 32, 'F');
+
+                doc.setFillColor(255, 183, 3);
+                doc.rect(15, 245, 180, 1.5, 'F');
+
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(9);
+                doc.setTextColor(255, 183, 3);
+                doc.text('EVENT ORGANIZERS', 105, 254, { align: 'center' });
+
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(11);
+                doc.setTextColor(255, 255, 255);
+                doc.text('Esha Sharma & Mokshada Badgujar', 105, 262, { align: 'center' });
+
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(9);
+                doc.setTextColor(230, 220, 240);
+                doc.text('Indian Community France – Grenoble', 105, 270, { align: 'center' });
+
+                // Decorative Corner Brackets inside frame
+                const corners = [ [18, 18], [192, 18], [18, 279], [192, 279] ];
+                corners.forEach(([cx, cy]) => {
+                    doc.setDrawColor(255, 183, 3);
+                    doc.setLineWidth(1.2);
+                    const dx = cx < 100 ? 5 : -5;
+                    const dy = cy < 150 ? 5 : -5;
+                    doc.line(cx, cy, cx + dx, cy);
+                    doc.line(cx, cy, cx, cy + dy);
+                });
+
+                doc.save(`garba-eve-2026-ticket-${r.id}.pdf`);
+                showToast('PDF downloaded successfully!', 'success');
+
+            } catch (err) {
+                console.error(err);
+                showToast('Voucher compilation crashed. Contact support.', 'error');
+            }
+
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-file-arrow-down"></i> Download Voucher (PDF)';
+            }
+        }
+
+        // ====================================
+        // PAGE: SCANNER GATE
+        // ====================================
+        function initScannerPage() {
+            if (!adminAuthenticated) {
+                navigate('landing');
+                return;
+            }
+            document.getElementById('scan-result').style.display = 'none';
+            renderRecentCheckins();
+        }
+
+        function startScanner() {
+            if (scannerRunning) return;
+            const region = document.getElementById('scanner-region');
+            region.innerHTML = '';
+            
+            document.getElementById('btn-start-scan').style.display = 'none';
+            document.getElementById('btn-stop-scan').style.display = 'block';
+
+            scannerInstance = new Html5Qrcode('scanner-region');
+            scannerInstance.start(
+                { facingMode: 'environment' },
+                { fps: 10, qrbox: { width: 220, height: 220 }, aspectRatio: 1.0 },
+                handleScanResult,
+                () => {} // Silent failures
+            ).then(() => {
+                scannerRunning = true;
+                showToast('Gate scanner activated successfully!', 'info');
+            }).catch(err => {
+                console.error(err);
+                showToast('Camera feed blocked. Manual override recommended.', 'error');
+                stopScanner();
+            });
+        }
+
+        function stopScanner() {
+            document.getElementById('btn-start-scan').style.display = 'block';
+            document.getElementById('btn-stop-scan').style.display = 'none';
+            
+            if (scannerInstance && scannerRunning) {
+                scannerInstance.stop().then(() => {
+                    scannerRunning = false;
+                    document.getElementById('scanner-region').innerHTML = '';
+                }).catch(console.error);
+            }
+        }
+
+        function handleScanResult(refCode) {
+            const code = refCode.trim().toUpperCase();
+            stopScanner();
+
+            const list = getRegistrations();
+            const reg = list.find(r => r.id === code);
+            const resultBox = document.getElementById('scan-result');
+            resultBox.style.display = 'block';
+
+            if (!reg) {
+                resultBox.innerHTML = `
+                    <div class="flex items-center gap-3 text-red-500 mb-2 font-bold">
+                        <i class="fa-solid fa-circle-xmark"></i> Invalid Ticket Ref Code
+                    </div>
+                    <p class="text-xs">No registration record is linked to <code class="bg-black/40 p-1 rounded font-mono text-amber-500">${code}</code>.</p>
+                `;
+                showToast('Scan rejected: Ticket code invalid', 'error');
+                return;
+            }
+
+            if (reg.checkedIn) {
+                resultBox.innerHTML = `
+                    <div class="flex items-center gap-3 text-yellow-500 mb-2 font-bold">
+                        <i class="fa-solid fa-triangle-exclamation"></i> Already Checked In
+                    </div>
+                    <p class="text-xs font-semibold text-white">${reg.name} (Primary Contact)</p>
+                    <p class="text-xs text-gray-400">This pass was already verified at ${new Date(reg.checkedInAt).toLocaleTimeString()}</p>
+                `;
+                showToast('Already checked in!', 'warning');
+                return;
+            }
+
+            // Perform successful gate log checkin update
+            const now = new Date().toISOString();
+            reg.checkedIn = true;
+            reg.checkedInAt = now;
+            updateRegistration(code, { checkedIn: true, checkedInAt: now });
+
+            resultBox.innerHTML = `
+                <div class="flex items-center gap-3 text-green-500 mb-2 font-bold">
+                    <i class="fa-solid fa-circle-check"></i> Check-in Confirmed!
+                </div>
+                <p class="text-xs font-semibold text-white mb-1">Roster Group: ${reg.name}</p>
+                <p class="text-xs text-gray-300">Total Group Assembly: <strong class="text-green-500">${reg.totalPeople} Passes</strong></p>
+                <div class="bg-black/35 p-2 rounded mt-2 border border-[#3E1A52]">
+                    <span class="block text-[10px] uppercase text-gray-400">Attendee Guest Ledger:</span>
+                    <p class="text-[11px] text-white">${reg.attendees.join(', ')}</p>
+                </div>
+            `;
+            showToast('Pass approved!', 'success');
+            renderRecentCheckins();
+        }
+
+        function manualCheckIn() {
+            const input = document.getElementById('manual-ref');
+            const code = input.value.trim().toUpperCase();
+            if (!code) {
+                showToast('Enter a valid ticket reference code', 'warning');
+                return;
+            }
+            handleScanResult(code);
+            input.value = '';
+        }
+
+        function renderRecentCheckins() {
+            const list = getRegistrations();
+            const checked = list.filter(r => r.checkedIn).sort((a,b) => new Date(b.checkedInAt) - new Date(a.checkedInAt));
+            const container = document.getElementById('recent-checkins');
+            container.innerHTML = '';
+
+            if (checked.length === 0) {
+                container.innerHTML = '<p class="text-xs text-center py-4" style="color:var(--fg-muted);">No check-in entries logged yet.</p>';
+                return;
+            }
+
+            checked.slice(0, 5).forEach(r => {
+                const el = document.createElement('div');
+                el.className = 'flex items-center justify-between text-xs py-2 border-b border-[#301648]';
+                el.innerHTML = `
+                    <div>
+                        <span class="block font-semibold text-white">${r.name}</span>
+                        <span class="text-[10px] text-gray-400 font-mono">${r.id} | ${r.totalPeople} Pass/es</span>
+                    </div>
+                    <span class="text-[10px] text-green-500 font-semibold">${new Date(r.checkedInAt).toLocaleTimeString()}</span>
+                `;
+                container.appendChild(el);
+            });
+        }
+
+        // ====================================
+        // PAGE: STATS & ANALYTICS ROSTER
+        // ====================================
+        function initStatsPage() {
+            if (!adminAuthenticated) {
+                navigate('landing');
+                return;
+            }
+
+            const list = getRegistrations();
+            const counts = getRegisteredCounts();
+            const capacity = CONFIG.capacity;
+
+            const totalRegistered = counts.adults + counts.kids516 + counts.kidsU5;
+            const capTotal = capacity.adults + capacity.kids516 + capacity.kidsU5;
+            const checkedInTotal = list.filter(r => r.checkedIn).reduce((sum, r) => sum + r.totalPeople, 0);
+
+            // Compute Financial Balance
+            const totalPaidRevenue = list.reduce((sum, r) => sum + r.totalAmount, 0);
+
+            // Populate Stats Cards Grid
+            const grid = document.getElementById('stats-grid');
+            grid.innerHTML = `
+                <!-- Metrics Card 1: Registrations -->
+                <div class="card relative overflow-hidden">
+                    <span class="block text-[10px] uppercase font-bold tracking-wider" style="color:var(--fg-muted);">Active Registry Profiles</span>
+                    <span class="text-3xl font-extrabold text-white block mt-1">${list.length}</span>
+                    <span class="text-[10px] text-gray-400 block mt-2">${totalRegistered} total tickets issued</span>
+                </div>
+                <!-- Metrics Card 2: Gate Traffic Progress -->
+                <div class="card">
+                    <span class="block text-[10px] uppercase font-bold tracking-wider" style="color:var(--fg-muted);">Gate Traffic Checked In</span>
+                    <span class="text-3xl font-extrabold text-green-500 block mt-1">${checkedInTotal}</span>
+                    <span class="text-[10px] text-gray-400 block mt-2">out of ${totalRegistered} active ticket passes</span>
+                </div>
+                <!-- Metrics Card 3: Revenue Balance -->
+                <div class="card">
+                    <span class="block text-[10px] uppercase font-bold tracking-wider" style="color:var(--fg-muted);">Estimated Revenue</span>
+                    <span class="text-3xl font-extrabold text-amber-500 block mt-1">${totalPaidRevenue.toFixed(2)} &euro;</span>
+                    <span class="text-[10px] text-green-500 block mt-2"><i class="fa-solid fa-lock"></i> Secured SEPA Funds</span>
+                </div>
+                <!-- Metrics Card 4: Global Remaining Capacity -->
+                <div class="card">
+                    <span class="block text-[10px] uppercase font-bold tracking-wider" style="color:var(--fg-muted);">Total Open Spots</span>
+                    <span class="text-3xl font-extrabold text-white block mt-1">${Math.max(0, capTotal - totalRegistered)}</span>
+                    <span class="text-[10px] text-gray-400 block mt-2">Remaining of ${capTotal} capacity limit</span>
+                </div>
+            `;
+
+            // Setup allocation bars
+            const bars = document.getElementById('stats-bars');
+            bars.innerHTML = '';
+
+            const categories = [
+                { label: 'Adults Capacity Allocation', registered: counts.adults, limit: capacity.adults, color: 'bg-amber-500' },
+                { label: 'Kids (5-16) Capacity Allocation', registered: counts.kids516, limit: capacity.kids516, color: 'bg-purple-500' },
+                { label: 'Kids (Under 5) Capacity Allocation', registered: counts.kidsU5, limit: capacity.kidsU5, color: 'bg-green-500' }
+            ];
+
+            categories.forEach(cat => {
+                const pct = Math.min(100, Math.round((cat.registered / cat.limit) * 100)) || 0;
+                const bar = document.createElement('div');
+                bar.innerHTML = `
+                    <div class="flex justify-between text-xs font-semibold text-gray-400 mb-1">
+                        <span>${cat.label}</span>
+                        <span>${cat.registered} / ${cat.limit} Spots (${pct}%)</span>
+                    </div>
+                    <div class="stat-bar-track">
+                        <div class="stat-bar-fill ${cat.color}" style="width: ${pct}%;"></div>
+                    </div>
+                `;
+                bars.appendChild(bar);
+            });
+
+            // Update Dynamic Check-in dial
+            const checkInPct = totalRegistered > 0 ? Math.round((checkedInTotal / totalRegistered) * 100) : 0;
+            document.getElementById('checkin-percentage').textContent = `${checkInPct}%`;
+            document.getElementById('checkin-progress-bar').style.width = `${checkInPct}%`;
+
+            renderRosterLedger();
+        }
+
+        function renderRosterLedger() {
+            const list = getRegistrations();
+            const body = document.getElementById('roster-table-body');
+            body.innerHTML = '';
+
+            if (list.length === 0) {
+                body.innerHTML = '<tr><td colspan="6" class="text-center py-8 text-gray-400">No active registrations processed yet.</td></tr>';
+                return;
+            }
+
+            list.forEach(r => {
+                const checkInBadge = r.checkedIn
+                    ? `<span class="badge badge-success"><i class="fa-solid fa-check"></i> Checked In</span>`
+                    : `<span class="badge badge-warning"><i class="fa-solid fa-clock"></i> Pending</span>`;
+
+                const namesFormatted = r.attendees.map(n => `<span class="block">• ${n}</span>`).join('');
+
+                const row = document.createElement('tr');
+                row.className = 'border-b border-[#1E0E3B] hover:bg-[#1C0933]/50 transition-colors';
+                row.innerHTML = `
+                    <td class="py-4 px-4 font-mono font-bold text-amber-500">${r.id}</td>
+                    <td class="py-4 px-4 font-semibold text-white">${r.name}</td>
+                    <td class="py-4 px-4">
+                        <span class="block">${r.email}</span>
+                        <span class="block text-gray-400 text-[10px] mt-1">${r.phone}</span>
+                    </td>
+                    <td class="py-4 px-4 text-gray-300">
+                        <div class="font-bold text-white">${r.totalPeople} Ticket/s:</div>
+                        <div class="mt-1 space-y-0.5 text-[10px] max-h-[100px] overflow-y-auto">${namesFormatted}</div>
+                    </td>
+                    <td class="py-4 px-4 font-bold text-white">${r.totalAmount.toFixed(2)} &euro;</td>
+                    <td class="py-4 px-4">${checkInBadge}</td>
+                `;
+                body.appendChild(row);
+            });
+        }
+
+        // Live Roster Search Filtering
+        function filterRoster() {
+            const query = document.getElementById('roster-search').value.toLowerCase().trim();
+            const rows = document.querySelectorAll('#roster-table-body tr');
+
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                if (text.includes(query)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        }
+
+        // CSV Export Ledger Engine
+        function exportCSV() {
+            const list = getRegistrations();
+            if (list.length === 0) {
+                showToast('No records available for export', 'warning');
+                return;
+            }
+
+            const headers = ['Ref ID', 'Primary Name', 'Email', 'Phone', 'Adults', 'Kids 5-16', 'Kids Under 5', 'Attendees List', 'Total Paid', 'Checked In', 'Checked In At'];
+            let csvContent = headers.join(',') + '\n';
+
+            list.forEach(r => {
+                const row = [
+                    r.id,
+                    `"${r.name.replace(/"/g, '""')}"`,
+                    `"${r.email.replace(/"/g, '""')}"`,
+                    `"${r.phone.replace(/"/g, '""')}"`,
+                    r.adults,
+                    r.kids516,
+                    r.kidsU5,
+                    `"${r.attendees.join('; ').replace(/"/g, '""')}"`,
+                    r.totalAmount.toFixed(2),
+                    r.checkedIn ? 'YES' : 'NO',
+                    r.checkedInAt || ''
+                ];
+                csvContent += row.join(',') + '\n';
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.setAttribute('href', url);
+            link.setAttribute('download', `garba-eve-2026-roster-export.csv`);
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            showToast('CSV export downloaded successfully!', 'success');
+        }
+
+        // ====================================
+        // ORGANIZER ACCESS SIGN IN
+        // ====================================
+        function openAdminModal() {
+            document.getElementById('admin-modal').classList.add('show');
+            document.getElementById('admin-pwd').value = '';
+            document.getElementById('admin-error').style.display = 'none';
+            setTimeout(() => document.getElementById('admin-pwd').focus(), 150);
+        }
+
+        function closeAdminModal() {
+            document.getElementById('admin-modal').classList.remove('show');
+        }
+
+        function tryAdminLogin() {
+            const pwd = document.getElementById('admin-pwd').value;
+            if (pwd === CONFIG.adminPassword) {
+                adminAuthenticated = true;
+                closeAdminModal();
+                showToast('Organizer dashboard authenticated!', 'success');
+                navigate('stats');
+            } else {
+                document.getElementById('admin-error').style.display = 'block';
+                setTimeout(() => document.getElementById('admin-error').style.display = 'none', 3000);
+            }
+        }
+
+        // Password enter key listener
+        document.getElementById('admin-pwd').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') tryAdminLogin();
+        });
+
+        // Initialize App on load
+        function init() {
+            initParticles();
+            initCountdown();
+            updateLandingPage();
+            
+            // Check status of registrations on landing periodically
+            setInterval(() => {
+                if (currentPage === 'landing') updateLandingPage();
+            }, 10000);
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
