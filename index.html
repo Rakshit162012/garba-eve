@@ -1141,1336 +1141,943 @@
     <canvas id="particles-canvas" class="fixed inset-0 pointer-events-none z-0"></canvas>
 
     <script>
-        // CONFIG holds basic event properties
-        const CONFIG = {
-            eventName: 'Garba Eve 2026',
-            eventDate: new Date('2026-10-10T16:00:00'),
-            venue: 'Salle Polyvalente Gali, 39 Rue Andre Rivoire, 38100 Grenoble',
-            iban: 'FR76 3000 4028 3700 0100 0232 275',
-            contactEmail: 'rakshitpande2012@gmail.com',
-            adminPassword: 'garba2026',
-            registrationDeadline: new Date('2026-09-30T00:00:00'),
-            capacity: { adults: 150, kids516: 40, kidsU5: 10 },
-            pricing: { adults: 12, kids5to16: 8, kidsUnder5: 0 }
+    // ====================================
+    // CONFIG
+    // ====================================
+    const CONFIG = {
+        eventName: 'Garba Eve 2026',
+        eventDate: new Date('2026-10-10T16:00:00'),
+        venue: 'Salle Polyvalente Gali, 39 Rue Andre Rivoire, 38100 Grenoble',
+        iban: 'FR76 3000 4028 3700 0100 0232 275',
+        contactEmail: 'rakshitpande2012@gmail.com',
+        adminPassword: 'garba2026',
+        registrationDeadline: new Date('2026-09-30T00:00:00'),
+        capacity: { adults: 150, kids516: 40, kidsU5: 10 },
+        pricing: { adults: 12, kids5to16: 8, kidsUnder5: 0 }
+    };
+
+    // State
+    let currentRegistration = null;
+    let adminAuthenticated = false;
+    let scannerInstance = null;
+    let scannerRunning = false;
+    let currentPage = 'landing';
+    let counts = { adults: 0, kids516: 0, kidsU5: 0 };
+    let jsPDFReady = false;
+    
+    // Cache to avoid too many DB calls
+    let cachedRegistrations = null;
+    let cacheTime = 0;
+    const CACHE_TTL = 3000; // 3 seconds
+
+    document.getElementById('jspdf-script').addEventListener('load', () => {
+        jsPDFReady = !!(window.jspdf && window.jspdf.jsPDF);
+    });
+
+    // ====================================
+    // NEONDB API FUNCTIONS
+    // ====================================
+    const API_BASE = '/api';
+
+    async function getRegistrations(forceRefresh = false) {
+        // Use cache if recent
+        if (!forceRefresh && cachedRegistrations && (Date.now() - cacheTime < CACHE_TTL)) {
+            return cachedRegistrations;
+        }
+        try {
+            const res = await fetch(`${API_BASE}/registrations`);
+            if (!res.ok) throw new Error('Network error');
+            const data = await res.json();
+            // Normalize field names from DB (lowercase)
+            cachedRegistrations = data.map(r => ({
+                id: r.id,
+                name: r.name,
+                email: r.email,
+                phone: r.phone,
+                adults: r.adults || 0,
+                kids516: r.kids516 || 0,
+                kidsU5: r.kidsu5 || r.kidsU5 || 0,
+                attendees: typeof r.attendees === 'string' ? JSON.parse(r.attendees) : (r.attendees || []),
+                totalPeople: r.totalpeople || r.totalPeople || 0,
+                totalAmount: parseFloat(r.totalamount || r.totalAmount || 0),
+                registeredAt: r.registeredat || r.registeredAt,
+                checkedIn: r.checkedin || r.checkedIn || false,
+                checkedInAt: r.checkedinat || r.checkedInAt || null
+            }));
+            cacheTime = Date.now();
+            return cachedRegistrations;
+        } catch (e) {
+            console.error('DB Error:', e);
+            showToast('Cannot connect to database', 'error');
+            return cachedRegistrations || [];
+        }
+    }
+
+    async function saveRegistration(reg) {
+        try {
+            const res = await fetch(`${API_BASE}/registrations`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(reg)
+            });
+            if (!res.ok) throw new Error('Save failed');
+            cachedRegistrations = null; // Invalidate cache
+            return await res.json();
+        } catch (e) {
+            console.error('Save Error:', e);
+            showToast('Failed to save registration', 'error');
+            throw e;
+        }
+    }
+
+    async function updateRegistration(id, updates) {
+        try {
+            const res = await fetch(`${API_BASE}/registrations/${id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updates)
+            });
+            if (!res.ok) throw new Error('Update failed');
+            cachedRegistrations = null; // Invalidate cache
+            return await res.json();
+        } catch (e) {
+            console.error('Update Error:', e);
+            showToast('Failed to update record', 'error');
+            throw e;
+        }
+    }
+
+    async function getRegisteredCounts() {
+        const regs = await getRegistrations();
+        const result = { adults: 0, kids516: 0, kidsU5: 0 };
+        regs.forEach(r => {
+            result.adults += (r.adults || 0);
+            result.kids516 += (r.kids516 || 0);
+            result.kidsU5 += (r.kidsU5 || 0);
+        });
+        return result;
+    }
+
+    async function getRemaining(type) {
+        const registered = await getRegisteredCounts();
+        return Math.max(0, CONFIG.capacity[type] - registered[type]);
+    }
+
+    async function isRegistrationOpen() {
+        const remA = await getRemaining('adults');
+        const remK = await getRemaining('kids516');
+        const remU = await getRemaining('kidsU5');
+        return new Date() < CONFIG.registrationDeadline && (remA + remK + remU) > 0;
+    }
+
+    function generateRefCode() {
+        const ts = Date.now().toString(36).toUpperCase();
+        const rnd = Math.random().toString(36).substring(2, 6).toUpperCase();
+        return `GARBA-${ts}-${rnd}`;
+    }
+
+    function showToast(msg, type = 'info') {
+        const container = document.getElementById('toast-container');
+        const el = document.createElement('div');
+        el.className = `toast toast-${type}`;
+        el.innerHTML = msg;
+        container.appendChild(el);
+        requestAnimationFrame(() => el.classList.add('show'));
+        setTimeout(() => {
+            el.classList.remove('show');
+            setTimeout(() => el.remove(), 400);
+        }, 3500);
+    }
+
+    function copyText(txt, btn) {
+        const clean = txt.replace(/\u20AC/g, 'EUR').trim();
+        navigator.clipboard.writeText(clean).then(() => {
+            btn.classList.add('copied');
+            const orig = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-check"></i>';
+            showToast('Copied to clipboard!', 'success');
+            setTimeout(() => { btn.classList.remove('copied'); btn.innerHTML = orig; }, 2000);
+        }).catch(() => {
+            const ta = document.createElement('textarea');
+            ta.value = clean;
+            ta.style.position = 'fixed'; ta.style.opacity = '0';
+            document.body.appendChild(ta); ta.select();
+            try { document.execCommand('copy'); showToast('Copied!', 'success'); }
+            catch (err) { showToast('Failed to copy', 'error'); }
+            document.body.removeChild(ta);
+        });
+    }
+
+    function clearErrors() {
+        document.querySelectorAll('[id^="err-"]').forEach(el => el.style.display = 'none');
+        document.querySelectorAll('.form-input.error').forEach(el => el.classList.remove('error'));
+    }
+
+    // ====================================
+    // NAVIGATION
+    // ====================================
+    async function navigate(page) {
+        if (currentPage === 'scanner' && scannerRunning) stopScanner();
+
+        const currentEl = document.getElementById(`page-${currentPage}`);
+        if (currentEl) currentEl.classList.remove('active');
+
+        currentPage = page;
+        const nextEl = document.getElementById(`page-${page}`);
+        if (nextEl) { nextEl.classList.add('active'); window.scrollTo(0, 0); }
+
+        const adminBar = document.getElementById('admin-bar');
+        if (adminAuthenticated && (page === 'scanner' || page === 'stats')) {
+            adminBar.classList.add('show');
+        } else {
+            adminBar.classList.remove('show');
+        }
+
+        document.getElementById('nav-scanner').className = (page === 'scanner' ? 'active-tab' : '');
+        document.getElementById('nav-stats').className = (page === 'stats' ? 'active-tab' : '');
+
+        if (page === 'register') await initRegisterPage();
+        if (page === 'payment') initPaymentPage();
+        if (page === 'ticket') initTicketPage();
+        if (page === 'scanner') await initScannerPage();
+        if (page === 'stats') await initStatsPage();
+        if (page === 'landing') await updateLandingPage();
+    }
+
+    // ====================================
+    // LANDING PAGE
+    // ====================================
+    async function updateLandingPage() {
+        const isOpen = await isRegistrationOpen();
+        const overlay = document.getElementById('reg-closed-overlay');
+        const ctaBtn = document.getElementById('btn-register-cta');
+
+        if (!isOpen) {
+            overlay.style.display = 'flex';
+            ctaBtn.style.display = 'none';
+        } else {
+            overlay.style.display = 'none';
+            ctaBtn.style.display = 'block';
+        }
+
+        const remA = await getRemaining('adults');
+        const remK = await getRemaining('kids516');
+        const remU = await getRemaining('kidsU5');
+
+        const totalLeft = remA + remK + remU;
+        const spotsEl = document.getElementById('spots-remaining');
+        if (totalLeft <= 0) {
+            spotsEl.textContent = 'SOLD OUT!';
+            spotsEl.style.color = 'var(--danger)';
+        } else {
+            spotsEl.textContent = `${totalLeft} registration spots available`;
+            spotsEl.style.color = 'var(--fg-muted)';
+        }
+    }
+
+    // ====================================
+    // PARTICLES BACKGROUND
+    // ====================================
+    function initParticles() {
+        const canvas = document.getElementById('particles-canvas');
+        const ctx = canvas.getContext('2d');
+        let w = canvas.width = window.innerWidth;
+        let h = canvas.height = window.innerHeight;
+        window.addEventListener('resize', () => {
+            w = canvas.width = window.innerWidth;
+            h = canvas.height = window.innerHeight;
+        });
+        const colors = [
+            'rgba(255, 107, 0, 0.15)', 'rgba(255, 183, 3, 0.15)',
+            'rgba(107, 45, 123, 0.12)', 'rgba(220, 20, 60, 0.1)'
+        ];
+        const particles = [];
+        for (let i = 0; i < 25; i++) {
+            particles.push({
+                x: Math.random() * w, y: Math.random() * h,
+                size: Math.random() * 6 + 4,
+                speedX: Math.random() * 0.4 - 0.2,
+                speedY: Math.random() * 0.3 + 0.1,
+                color: colors[Math.floor(Math.random() * colors.length)],
+                rot: Math.random() * Math.PI * 2,
+                rotSpeed: Math.random() * 0.01 + 0.005
+            });
+        }
+        function animate() {
+            ctx.clearRect(0, 0, w, h);
+            particles.forEach(p => {
+                p.x += p.speedX; p.y += p.speedY; p.rot += p.rotSpeed;
+                if (p.y > h + 10) { p.y = -10; p.x = Math.random() * w; }
+                if (p.x > w + 10) p.x = -10;
+                if (p.x < -10) p.x = w + 10;
+                ctx.save();
+                ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.ellipse(0, 0, p.size, p.size * 1.6, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            });
+            requestAnimationFrame(animate);
+        }
+        animate();
+    }
+
+    function initCountdown() {
+        function update() {
+            const diff = CONFIG.eventDate - new Date();
+            if (diff <= 0) { clearInterval(intervalId); return; }
+            const days = Math.floor(diff / 86400000);
+            const hrs = Math.floor((diff % 86400000) / 3600000);
+            const mins = Math.floor((diff % 3600000) / 60000);
+            const secs = Math.floor((diff % 60000) / 1000);
+            document.getElementById('cd-days').textContent = String(days).padStart(2, '0');
+            document.getElementById('cd-hours').textContent = String(hrs).padStart(2, '0');
+            document.getElementById('cd-mins').textContent = String(mins).padStart(2, '0');
+            document.getElementById('cd-secs').textContent = String(secs).padStart(2, '0');
+        }
+        const intervalId = setInterval(update, 1000);
+        update();
+    }
+
+    // ====================================
+    // REGISTER PAGE
+    // ====================================
+    async function initRegisterPage() {
+        if (!(await isRegistrationOpen())) {
+            navigate('landing');
+            showToast('Registration is closed', 'warning');
+            return;
+        }
+        counts = { adults: 0, kids516: 0, kidsU5: 0 };
+        updateStepperUI();
+        updatePriceSummary();
+        await updateRemainingLabels();
+        document.getElementById('register-form').reset();
+        document.getElementById('card-attendee-names').style.display = 'none';
+    }
+
+    async function updateRemainingLabels() {
+        document.getElementById('remaining-adults').textContent = `${await getRemaining('adults')} spots left`;
+        document.getElementById('remaining-kids516').textContent = `${await getRemaining('kids516')} spots left`;
+        document.getElementById('remaining-kidsU5').textContent = `${await getRemaining('kidsU5')} spots left`;
+    }
+
+    async function adjustCount(type, delta) {
+        const current = counts[type];
+        const next = current + delta;
+        if (next < 0) return;
+        const remaining = await getRemaining(type);
+        if (delta > 0 && next > remaining) {
+            showToast(`Only ${remaining} spots left for this category`, 'warning');
+            return;
+        }
+        counts[type] = next;
+        updateStepperUI();
+        updatePriceSummary();
+        generateNameFields();
+    }
+
+    function updateStepperUI() {
+        document.getElementById('count-adults').textContent = counts.adults;
+        document.getElementById('count-kids516').textContent = counts.kids516;
+        document.getElementById('count-kidsU5').textContent = counts.kidsU5;
+    }
+
+    function generateNameFields() {
+        const container = document.getElementById('attendee-names-fields');
+        const outerCard = document.getElementById('card-attendee-names');
+        container.innerHTML = '';
+        const totalPeople = counts.adults + counts.kids516 + counts.kidsU5;
+        if (totalPeople <= 1) { outerCard.style.display = 'none'; return; }
+        outerCard.style.display = 'block';
+        let fieldIndex = 2;
+        const primaryIsAdult = counts.adults > 0;
+        const startAdultIndex = primaryIsAdult ? 2 : 1;
+        for (let i = startAdultIndex; i <= counts.adults; i++) {
+            addNameFieldInput(`Guest ${fieldIndex} (Adult) Name`, `name-adult-${i}`, fieldIndex);
+            fieldIndex++;
+        }
+        for (let i = 1; i <= counts.kids516; i++) {
+            addNameFieldInput(`Guest ${fieldIndex} (Kid 5-16) Name`, `name-kid516-${i}`, fieldIndex);
+            fieldIndex++;
+        }
+        for (let i = 1; i <= counts.kidsU5; i++) {
+            addNameFieldInput(`Guest ${fieldIndex} (Kid Under 5) Name`, `name-kidU5-${i}`, fieldIndex);
+            fieldIndex++;
+        }
+    }
+
+    function addNameFieldInput(label, id, idx) {
+        const container = document.getElementById('attendee-names-fields');
+        const field = document.createElement('div');
+        field.innerHTML = `
+            <label class="block text-xs font-semibold mb-1" for="guest-name-${idx}">${label} *</label>
+            <input type="text" id="guest-name-${idx}" class="form-input guest-name-input" placeholder="Enter full name" required>
+            <div class="text-xs mt-1" style="color:var(--danger);display:none;" id="err-guest-${idx}">Name is required.</div>
+        `;
+        container.appendChild(field);
+    }
+
+    function updatePriceSummary() {
+        const p = CONFIG.pricing;
+        const aTotal = counts.adults * p.adults;
+        const kTotal = counts.kids516 * p.kids5to16;
+        const total = aTotal + kTotal;
+        let html = '';
+        if (counts.adults > 0) html += `<div class="price-row"><span>Adults (${counts.adults} × ${p.adults} €)</span><span>${aTotal.toFixed(2)} €</span></div>`;
+        if (counts.kids516 > 0) html += `<div class="price-row"><span>Kids 5-16 (${counts.kids516} × ${p.kids5to16} €)</span><span>${kTotal.toFixed(2)} €</span></div>`;
+        if (counts.kidsU5 > 0) html += `<div class="price-row"><span>Kids Under 5 (${counts.kidsU5} × Free)</span><span>0.00 €</span></div>`;
+        if (html === '') html = '<div class="text-xs text-center py-2" style="color:var(--fg-muted);">No tickets selected yet.</div>';
+        document.getElementById('price-breakdown').innerHTML = html;
+        document.getElementById('price-total').innerHTML = `<span>Total Due:</span><span>${total.toFixed(2)} €</span>`;
+    }
+
+    document.getElementById('register-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        clearErrors();
+        const nameEl = document.getElementById('reg-name');
+        const emailEl = document.getElementById('reg-email');
+        const phoneEl = document.getElementById('reg-phone');
+        const termsEl = document.getElementById('reg-terms');
+        let valid = true;
+        if (!nameEl.value.trim()) {
+            nameEl.classList.add('error');
+            document.getElementById('err-name').style.display = 'block';
+            valid = false;
+        }
+        const emailRx = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRx.test(emailEl.value.trim())) {
+            emailEl.classList.add('error');
+            document.getElementById('err-email').style.display = 'block';
+            valid = false;
+        }
+        if (!phoneEl.value.trim()) {
+            phoneEl.classList.add('error');
+            document.getElementById('err-phone').style.display = 'block';
+            valid = false;
+        }
+        const totalTickets = counts.adults + counts.kids516 + counts.kidsU5;
+        if (totalTickets === 0) {
+            showToast('Please select at least one ticket', 'warning');
+            return;
+        }
+        const attendeeNames = [nameEl.value.trim()];
+        const guestInputs = document.querySelectorAll('.guest-name-input');
+        guestInputs.forEach(input => {
+            if (!input.value.trim()) {
+                input.classList.add('error');
+                const errEl = input.nextElementSibling;
+                if (errEl) errEl.style.display = 'block';
+                valid = false;
+            } else {
+                attendeeNames.push(input.value.trim());
+            }
+        });
+        if (!termsEl.checked) {
+            document.getElementById('err-terms').style.display = 'block';
+            valid = false;
+        }
+        if (!valid) {
+            showToast('Please correct the errors in the form.', 'error');
+            return;
+        }
+        const refCode = generateRefCode();
+        currentRegistration = {
+            id: refCode,
+            name: nameEl.value.trim(),
+            email: emailEl.value.trim(),
+            phone: phoneEl.value.trim(),
+            adults: counts.adults,
+            kids516: counts.kids516,
+            kidsU5: counts.kidsU5,
+            attendees: attendeeNames,
+            totalPeople: totalTickets,
+            totalAmount: (counts.adults * CONFIG.pricing.adults) + (counts.kids516 * CONFIG.pricing.kids5to16),
+            registeredAt: new Date().toISOString(),
+            checkedIn: false,
+            checkedInAt: null
         };
-
-        // State Machine Storage
-        let currentRegistration = null;
-        let adminAuthenticated = false;
-        let scannerInstance = null;
-        let scannerRunning = false;
-        let currentPage = 'landing';
-        let counts = { adults: 0, kids516: 0, kidsU5: 0 };
-        let jsPDFReady = false;
-
-        // Check jsPDF status on startup
-        document.getElementById('jspdf-script').addEventListener('load', () => {
-            jsPDFReady = !!(window.jspdf && window.jspdf.jsPDF);
-        });
-
-        // LocalStorage helpers
-        function getRegistrations() {
-            try {
-                return JSON.parse(localStorage.getItem('garba_registrations') || '[]');
-            } catch (e) {
-                return [];
-            }
-        }
-
-        function saveRegistration(reg) {
-            try {
-                const list = getRegistrations();
-                list.push(reg);
-                localStorage.setItem('garba_registrations', JSON.stringify(list));
-            } catch (e) {
-                showToast('Registration storage error', 'error');
-            }
-        }
-
-        function updateRegistration(id, updates) {
-            try {
-                const list = getRegistrations();
-                const index = list.findIndex(r => r.id === id);
-                if (index !== -1) {
-                    Object.assign(list[index], updates);
-                    localStorage.setItem('garba_registrations', JSON.stringify(list));
-                }
-            } catch (e) {
-                console.error(e);
-            }
-        }
-
-        function getRegisteredCounts() {
-            const list = getRegistrations();
-            const counts = { adults: 0, kids516: 0, kidsU5: 0 };
-            list.forEach(r => {
-                counts.adults += (parseInt(r.adults) || 0);
-                counts.kids516 += (parseInt(r.kids516) || 0);
-                counts.kidsU5 += (parseInt(r.kidsU5) || 0);
-            });
-            return counts;
-        }
-
-        function getRemaining(type) {
-            const registered = getRegisteredCounts();
-            return Math.max(0, CONFIG.capacity[type] - registered[type]);
-        }
-
-        function isRegistrationOpen() {
-            const totalRemaining = getRemaining('adults') + getRemaining('kids516') + getRemaining('kidsU5');
-            return new Date() < CONFIG.registrationDeadline && totalRemaining > 0;
-        }
-
-        function generateRefCode() {
-            const ts = Date.now().toString(36).toUpperCase();
-            const rnd = Math.random().toString(36).substring(2, 6).toUpperCase();
-            return `GARBA-${ts}-${rnd}`;
-        }
-
-        function showToast(msg, type = 'info') {
-            const container = document.getElementById('toast-container');
-            const el = document.createElement('div');
-            el.className = `toast toast-${type}`;
-            el.innerHTML = msg;
-            container.appendChild(el);
-            requestAnimationFrame(() => el.classList.add('show'));
-            setTimeout(() => {
-                el.classList.remove('show');
-                setTimeout(() => el.remove(), 400);
-            }, 3500);
-        }
-
-        function copyText(txt, btn) {
-            const clean = txt.replace(/\u20AC/g, 'EUR').trim();
-            navigator.clipboard.writeText(clean).then(() => {
-                btn.classList.add('copied');
-                const orig = btn.innerHTML;
-                btn.innerHTML = '<i class="fa-solid fa-check"></i>';
-                showToast('Copied to clipboard!', 'success');
-                setTimeout(() => {
-                    btn.classList.remove('copied');
-                    btn.innerHTML = orig;
-                }, 2000);
-            }).catch(() => {
-                // Clipboard fallback
-                const ta = document.createElement('textarea');
-                ta.value = clean;
-                ta.style.position = 'fixed'; ta.style.opacity = '0';
-                document.body.appendChild(ta); ta.select();
-                try {
-                    document.execCommand('copy');
-                    showToast('Copied to clipboard!', 'success');
-                } catch (err) {
-                    showToast('Failed to copy', 'error');
-                }
-                document.body.removeChild(ta);
-            });
-        }
-
-        function clearErrors() {
-            document.querySelectorAll('[id^="err-"]').forEach(el => el.style.display = 'none');
-            document.querySelectorAll('.form-input.error').forEach(el => el.classList.remove('error'));
-        }
-
-        // ====================================
-        // NAVIGATION SYSTEM
-        // ====================================
-        function navigate(page) {
-            if (currentPage === 'scanner' && scannerRunning) {
-                stopScanner();
-            }
-
-            const currentEl = document.getElementById(`page-${currentPage}`);
-            if (currentEl) currentEl.classList.remove('active');
-
-            currentPage = page;
-            const nextEl = document.getElementById(`page-${page}`);
-            if (nextEl) {
-                nextEl.classList.add('active');
-                window.scrollTo(0, 0);
-            }
-
-            const adminBar = document.getElementById('admin-bar');
-            if (adminAuthenticated && (page === 'scanner' || page === 'stats')) {
-                adminBar.classList.add('show');
-            } else {
-                adminBar.classList.remove('show');
-            }
-
-            // Update Tab Active styles
-            document.getElementById('nav-scanner').className = (page === 'scanner' ? 'active-tab' : '');
-            document.getElementById('nav-stats').className = (page === 'stats' ? 'active-tab' : '');
-
-            // Page Init Handlers
-            if (page === 'register') initRegisterPage();
-            if (page === 'payment') initPaymentPage();
-            if (page === 'ticket') initTicketPage();
-            if (page === 'scanner') initScannerPage();
-            if (page === 'stats') initStatsPage();
-            if (page === 'landing') updateLandingPage();
-        }
-
-        // ====================================
-        // PAGE: LANDING IMPLEMENTATION
-        // ====================================
-        function updateLandingPage() {
-            const isOpen = isRegistrationOpen();
-            const overlay = document.getElementById('reg-closed-overlay');
-            const ctaBtn = document.getElementById('btn-register-cta');
-
-            if (!isOpen) {
-                overlay.style.display = 'flex';
-                ctaBtn.style.display = 'none';
-            } else {
-                overlay.style.display = 'none';
-                ctaBtn.style.display = 'block';
-            }
-
-            const remA = getRemaining('adults');
-            const remK = getRemaining('kids516');
-            const remU = getRemaining('kidsU5');
-
-            document.getElementById('landing-capacity-display').innerHTML = `
-                <div class="grid grid-cols-3 gap-2">
-                    <div class="p-2 rounded bg-opacity-10" style="background-color:rgba(255,107,0,0.06);">
-                        <span class="block text-xs font-bold text-white">${remA}</span>
-                        <span class="text-[10px]" style="color:var(--fg-muted);">Adults Left</span>
-                    </div>
-                    <div class="p-2 rounded bg-opacity-10" style="background-color:rgba(255,107,0,0.06);">
-                        <span class="block text-xs font-bold text-white">${remK}</span>
-                        <span class="text-[10px]" style="color:var(--fg-muted);">Kids 5-16 Left</span>
-                    </div>
-                    <div class="p-2 rounded bg-opacity-10" style="background-color:rgba(255,107,0,0.06);">
-                        <span class="block text-xs font-bold text-white">${remU}</span>
-                        <span class="text-[10px]" style="color:var(--fg-muted);">Under 5 Left</span>
-                    </div>
-                </div>
-            `;
-
-            const totalLeft = remA + remK + remU;
-            const spotsEl = document.getElementById('spots-remaining');
-            if (totalLeft <= 0) {
-                spotsEl.textContent = 'SOLD OUT!';
-                spotsEl.style.color = 'var(--danger)';
-            } else {
-                spotsEl.textContent = `${totalLeft} registration spots available`;
-                spotsEl.style.color = 'var(--fg-muted)';
-            }
-        }
-
-        // ====================================
-        // BACKGROUND ANIMATED PETAL CANVAS
-        // ====================================
-        function initParticles() {
-            const canvas = document.getElementById('particles-canvas');
-            const ctx = canvas.getContext('2d');
-            let w = canvas.width = window.innerWidth;
-            let h = canvas.height = window.innerHeight;
-
-            window.addEventListener('resize', () => {
-                w = canvas.width = window.innerWidth;
-                h = canvas.height = window.innerHeight;
-            });
-
-            const colors = [
-                'rgba(255, 107, 0, 0.15)',   // Accent Glow Orange
-                'rgba(255, 183, 3, 0.15)',   // Accent Glow Gold
-                'rgba(107, 45, 123, 0.12)',  // Border Glow Purple
-                'rgba(220, 20, 60, 0.1)'     // Crimson Accent
-            ];
-
-            const particles = [];
-            for (let i = 0; i < 25; i++) {
-                particles.push({
-                    x: Math.random() * w,
-                    y: Math.random() * h,
-                    size: Math.random() * 6 + 4,
-                    speedX: Math.random() * 0.4 - 0.2,
-                    speedY: Math.random() * 0.3 + 0.1,
-                    color: colors[Math.floor(Math.random() * colors.length)],
-                    rot: Math.random() * Math.PI * 2,
-                    rotSpeed: Math.random() * 0.01 + 0.005
-                });
-            }
-
-            function animate() {
-                ctx.clearRect(0, 0, w, h);
-                particles.forEach(p => {
-                    p.x += p.speedX;
-                    p.y += p.speedY;
-                    p.rot += p.rotSpeed;
-
-                    if (p.y > h + 10) {
-                        p.y = -10;
-                        p.x = Math.random() * w;
-                    }
-                    if (p.x > w + 10) p.x = -10;
-                    if (p.x < -10) p.x = w + 10;
-
-                    ctx.save();
-                    ctx.translate(p.x, p.y);
-                    ctx.rotate(p.rot);
-                    ctx.fillStyle = p.color;
-
-                    // Draw organic stylized traditional flower petal shape
-                    ctx.beginPath();
-                    ctx.ellipse(0, 0, p.size, p.size * 1.6, 0, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.restore();
-                });
-                requestAnimationFrame(animate);
-            }
-            animate();
-        }
-
-        // Countdown Timer Engine
-        function initCountdown() {
-            function update() {
-                const diff = CONFIG.eventDate - new Date();
-                if (diff <= 0) {
-                    clearInterval(intervalId);
-                    return;
-                }
-                const days = Math.floor(diff / 86400000);
-                const hrs = Math.floor((diff % 86400000) / 3600000);
-                const mins = Math.floor((diff % 3600000) / 60000);
-                const secs = Math.floor((diff % 60000) / 1000);
-
-                document.getElementById('cd-days').textContent = String(days).padStart(2, '0');
-                document.getElementById('cd-hours').textContent = String(hrs).padStart(2, '0');
-                document.getElementById('cd-mins').textContent = String(mins).padStart(2, '0');
-                document.getElementById('cd-secs').textContent = String(secs).padStart(2, '0');
-            }
-            const intervalId = setInterval(update, 1000);
-            update();
-        }
-
-        // ====================================
-        // PAGE: REGISTER IMPLEMENTATION
-        // ====================================
-        function initRegisterPage() {
-            if (!isRegistrationOpen()) {
-                navigate('landing');
-                showToast('Registration is closed', 'warning');
-                return;
-            }
-            counts = { adults: 0, kids516: 0, kidsU5: 0 };
-            updateStepperUI();
-            updatePriceSummary();
-            updateRemainingLabels();
-            document.getElementById('register-form').reset();
-            document.getElementById('card-attendee-names').style.display = 'none';
-        }
-
-        function updateRemainingLabels() {
-            document.getElementById('remaining-adults').textContent = `${getRemaining('adults')} spots left`;
-            document.getElementById('remaining-kids516').textContent = `${getRemaining('kids516')} spots left`;
-            document.getElementById('remaining-kidsU5').textContent = `${getRemaining('kidsU5')} spots left`;
-        }
-
-        function adjustCount(type, delta) {
-            const maxVal = CONFIG.capacity[type];
-            const current = counts[type];
-            const next = current + delta;
-
-            if (next < 0) return;
-            
-            const remaining = getRemaining(type);
-            if (delta > 0 && next > remaining) {
-                showToast(`Only ${remaining} spots left for this category`, 'warning');
-                return;
-            }
-
-            counts[type] = next;
-            updateStepperUI();
-            updatePriceSummary();
-            generateNameFields();
-        }
-
-        function updateStepperUI() {
-            document.getElementById('count-adults').textContent = counts.adults;
-            document.getElementById('count-kids516').textContent = counts.kids516;
-            document.getElementById('count-kidsU5').textContent = counts.kidsU5;
-        }
-
-        // Dynamically create Name Inputs for every individual beyond Primary
-        function generateNameFields() {
-            const container = document.getElementById('attendee-names-fields');
-            const outerCard = document.getElementById('card-attendee-names');
-            container.innerHTML = '';
-
-            const totalPeople = counts.adults + counts.kids516 + counts.kidsU5;
-
-            if (totalPeople <= 1) {
-                // Primary registrant covers Guest 1, hide card if total count is 1 or empty
-                outerCard.style.display = 'none';
-                return;
-            }
-
-            outerCard.style.display = 'block';
-            let fieldIndex = 2; // Guest 1 is the primary contact
-
-            // Adults (Skip 1 adult as they are Guest 1 / Primary Contact)
-            const primaryIsAdult = counts.adults > 0;
-            const startAdultIndex = primaryIsAdult ? 2 : 1;
-
-            for (let i = startAdultIndex; i <= counts.adults; i++) {
-                addNameFieldInput(`Guest ${fieldIndex} (Adult) Name`, `name-adult-${i}`, fieldIndex);
-                fieldIndex++;
-            }
-
-            // Kids 5-16
-            for (let i = 1; i <= counts.kids516; i++) {
-                addNameFieldInput(`Guest ${fieldIndex} (Kid 5-16) Name`, `name-kid516-${i}`, fieldIndex);
-                fieldIndex++;
-            }
-
-            // Kids Under 5
-            for (let i = 1; i <= counts.kidsU5; i++) {
-                addNameFieldInput(`Guest ${fieldIndex} (Kid Under 5) Name`, `name-kidU5-${i}`, fieldIndex);
-                fieldIndex++;
-            }
-        }
-
-        function addNameFieldInput(label, id, idx) {
-            const container = document.getElementById('attendee-names-fields');
-            const field = document.createElement('div');
-            field.className = 'animate-fade-in';
-            field.innerHTML = `
-                <label class="block text-xs font-semibold mb-1" for="guest-name-${idx}">${label} *</label>
-                <input type="text" id="guest-name-${idx}" class="form-input guest-name-input" data-label="${label}" placeholder="Enter full name for verification" required>
-                <div class="text-xs mt-1" style="color:var(--danger);display:none;" id="err-guest-${idx}">Name is required.</div>
-            `;
-            container.appendChild(field);
-        }
-
-        function updatePriceSummary() {
-            const p = CONFIG.pricing;
-            const aTotal = counts.adults * p.adults;
-            const kTotal = counts.kids516 * p.kids5to16;
-            const total = aTotal + kTotal;
-
-            let html = '';
-            if (counts.adults > 0) {
-                html += `<div class="price-row"><span>Adults (${counts.adults} &times; ${p.adults} &euro;)</span><span>${aTotal.toFixed(2)} &euro;</span></div>`;
-            }
-            if (counts.kids516 > 0) {
-                html += `<div class="price-row"><span>Kids 5-16 (${counts.kids516} &times; ${p.kids5to16} &euro;)</span><span>${kTotal.toFixed(2)} &euro;</span></div>`;
-            }
-            if (counts.kidsU5 > 0) {
-                html += `<div class="price-row"><span>Kids Under 5 (${counts.kidsU5} &times; Free)</span><span>0.00 &euro;</span></div>`;
-            }
-            if (html === '') {
-                html = '<div class="text-xs text-center py-2" style="color:var(--fg-muted);">No tickets selected yet.</div>';
-            }
-
-            document.getElementById('price-breakdown').innerHTML = html;
-            document.getElementById('price-total').innerHTML = `<span>Total Due:</span><span>${total.toFixed(2)} &euro;</span>`;
-        }
-
-        // Form Submit Handler
-        document.getElementById('register-form').addEventListener('submit', function(e) {
-            e.preventDefault();
-            clearErrors();
-
-            const nameEl = document.getElementById('reg-name');
-            const emailEl = document.getElementById('reg-email');
-            const phoneEl = document.getElementById('reg-phone');
-            const termsEl = document.getElementById('reg-terms');
-
-            let valid = true;
-
-            if (!nameEl.value.trim()) {
-                nameEl.classList.add('error');
-                document.getElementById('err-name').style.display = 'block';
-                valid = false;
-            }
-
-            const emailRx = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            if (!emailRx.test(emailEl.value.trim())) {
-                emailEl.classList.add('error');
-                document.getElementById('err-email').style.display = 'block';
-                valid = false;
-            }
-
-            if (!phoneEl.value.trim()) {
-                phoneEl.classList.add('error');
-                document.getElementById('err-phone').style.display = 'block';
-                valid = false;
-            }
-
-            // Ensure at least one ticket is requested
-            const totalTickets = counts.adults + counts.kids516 + counts.kidsU5;
-            if (totalTickets === 0) {
-                showToast('Please select at least one ticket to register', 'warning');
-                return;
-            }
-
-            // Dynamic attendee names validation
-            const attendeeNames = [nameEl.value.trim()]; // First guest is primary contact
-            const guestInputs = document.querySelectorAll('.guest-name-input');
-            
-            guestInputs.forEach(input => {
-                if (!input.value.trim()) {
-                    input.classList.add('error');
-                    const errEl = input.nextElementSibling;
-                    if (errEl) errEl.style.display = 'block';
-                    valid = false;
-                } else {
-                    attendeeNames.push(input.value.trim());
-                }
-            });
-
-            if (!termsEl.checked) {
-                document.getElementById('err-terms').style.display = 'block';
-                valid = false;
-            }
-
-            if (!valid) {
-                showToast('Please correct the validation errors in the registration form.', 'error');
-                return;
-            }
-
-            // Lock and save active compilation data
-            const refCode = generateRefCode();
-            currentRegistration = {
-                id: refCode,
-                name: nameEl.value.trim(),
-                email: emailEl.value.trim(),
-                phone: phoneEl.value.trim(),
-                adults: counts.adults,
-                kids516: counts.kids516,
-                kidsU5: counts.kidsU5,
-                attendees: attendeeNames, // Collection of all guest names
-                totalPeople: totalTickets,
-                totalAmount: (counts.adults * CONFIG.pricing.adults) + (counts.kids516 * CONFIG.pricing.kids5to16),
-                registeredAt: new Date().toISOString(),
-                checkedIn: false,
-                checkedInAt: null
-            };
-
-            navigate('payment');
-        });
-
-        // ====================================
-        // PAGE: PAYMENT IMPLEMENTATION
-        // ====================================
-        function initPaymentPage() {
-            if (!currentRegistration) {
-                navigate('register');
-                return;
-            }
-            const r = currentRegistration;
-            const p = CONFIG.pricing;
-
-            let invoiceRows = `
-                <div class="flex justify-between py-1 text-sm border-b border-[#301648]">
-                    <span>Transaction ID:</span><span class="font-mono text-xs text-white">${r.id}</span>
-                </div>
-                <div class="flex justify-between py-1 text-sm border-b border-[#301648]">
-                    <span>Primary Contact:</span><span class="text-white">${r.name}</span>
-                </div>
-            `;
-            if (r.adults > 0) invoiceRows += `<div class="flex justify-between py-1 text-xs text-gray-400"><span>Adult Tickets (${r.adults})</span><span>${(r.adults * p.adults).toFixed(2)} &euro;</span></div>`;
-            if (r.kids516 > 0) invoiceRows += `<div class="flex justify-between py-1 text-xs text-gray-400"><span>Kids 5-16 Tickets (${r.kids516})</span><span>${(r.kids516 * p.kids5to16).toFixed(2)} &euro;</span></div>`;
-            if (r.kidsU5 > 0) invoiceRows += `<div class="flex justify-between py-1 text-xs text-gray-400"><span>Kids Under 5 Tickets (${r.kidsU5})</span><span>0.00 &euro;</span></div>`;
-
-            document.getElementById('payment-summary').innerHTML = `
-                <h3 class="font-bold text-xs tracking-widest uppercase mb-3" style="color:var(--accent-light);">Invoice Overview</h3>
-                <div class="space-y-2 mb-4">${invoiceRows}</div>
-                <div class="flex justify-between items-center pt-2 border-t border-dashed border-[#5A206C]">
-                    <span class="font-bold text-sm text-white">Invoice Total Paid/Due:</span>
-                    <span class="text-xl font-bold font-display" style="color:var(--accent-light);">${r.totalAmount.toFixed(2)} &euro;</span>
-                </div>
-            `;
-
-            document.getElementById('pay-amount').textContent = `${r.totalAmount.toFixed(2)} EUR`;
-            document.getElementById('pay-ref').textContent = r.id;
-        }
-
-        function confirmPayment() {
-            if (!currentRegistration) return;
-            saveRegistration(currentRegistration);
-            showToast('Registration compiled successfully!', 'success');
+        navigate('payment');
+    });
+
+    // ====================================
+    // PAYMENT PAGE
+    // ====================================
+    function initPaymentPage() {
+        if (!currentRegistration) { navigate('register'); return; }
+        const r = currentRegistration;
+        const p = CONFIG.pricing;
+        let invoiceRows = `
+            <div class="flex justify-between py-1 text-sm border-b border-[#301648]">
+                <span>Transaction ID:</span><span class="font-mono text-xs text-white">${r.id}</span>
+            </div>
+            <div class="flex justify-between py-1 text-sm border-b border-[#301648]">
+                <span>Primary Contact:</span><span class="text-white">${r.name}</span>
+            </div>
+        `;
+        if (r.adults > 0) invoiceRows += `<div class="flex justify-between py-1 text-xs text-gray-400"><span>Adults (${r.adults})</span><span>${(r.adults * p.adults).toFixed(2)} €</span></div>`;
+        if (r.kids516 > 0) invoiceRows += `<div class="flex justify-between py-1 text-xs text-gray-400"><span>Kids 5-16 (${r.kids516})</span><span>${(r.kids516 * p.kids5to16).toFixed(2)} €</span></div>`;
+        if (r.kidsU5 > 0) invoiceRows += `<div class="flex justify-between py-1 text-xs text-gray-400"><span>Kids Under 5 (${r.kidsU5})</span><span>0.00 €</span></div>`;
+        document.getElementById('payment-summary').innerHTML = `
+            <h3 class="font-bold text-xs tracking-widest uppercase mb-3" style="color:var(--accent-light);">Invoice Overview</h3>
+            <div class="space-y-2 mb-4">${invoiceRows}</div>
+            <div class="flex justify-between items-center pt-2 border-t border-dashed border-[#5A206C]">
+                <span class="font-bold text-sm text-white">Invoice Total:</span>
+                <span class="text-xl font-bold font-display" style="color:var(--accent-light);">${r.totalAmount.toFixed(2)} €</span>
+            </div>
+        `;
+        document.getElementById('pay-amount').textContent = `${r.totalAmount.toFixed(2)} EUR`;
+        document.getElementById('pay-ref').textContent = r.id;
+    }
+
+    async function confirmPayment() {
+        if (!currentRegistration) return;
+        try {
+            await saveRegistration(currentRegistration);
+            showToast('Registration saved successfully!', 'success');
             navigate('ticket');
+        } catch (e) {
+            showToast('Failed to save. Please try again.', 'error');
         }
-
-        // ====================================
-        // PAGE: TICKET IMPLEMENTATION
-        // ====================================
-        function initTicketPage() {
-            if (!currentRegistration) {
-                navigate('landing');
-                return;
-            }
-            const r = currentRegistration;
-
-            // Render Attendee Names List inside ticket card
-            let namesList = '';
-            r.attendees.forEach((name, i) => {
-                namesList += `<div class="flex items-center gap-2"><i class="fa-solid fa-circle-user" style="color:var(--accent-light); font-size:10px;"></i> <span class="text-white font-medium">${name}</span> <span class="text-[10px] text-gray-400 font-mono">(${i === 0 ? 'Primary contact' : `Guest ${i+1}`})</span></div>`;
-            });
-
-            document.getElementById('ticket-details').innerHTML = `
-                <div>
-                    <span class="block text-[10px] uppercase text-gray-400">Contact Email</span>
-                    <span class="text-white">${r.email}</span>
-                </div>
-                <div>
-                    <span class="block text-[10px] uppercase text-gray-400">Total Group Assembly (${r.totalPeople} Pass/es)</span>
-                    <div class="space-y-1 mt-1 bg-black/35 p-3 rounded-lg border border-[#3E1A52]">${namesList}</div>
-                </div>
-            `;
-
-            document.getElementById('ticket-ref-display').textContent = r.id;
-
-            // Generate real-time interactive local QR Canvas
-            const qrContainer = document.getElementById('ticket-qr');
-            qrContainer.innerHTML = '';
-            new QRCode(qrContainer, {
-                text: r.id,
-                width: 140,
-                height: 140,
-                colorDark: '#000000',
-                colorLight: '#ffffff',
-                correctLevel: QRCode.CorrectLevel.H
-            });
-        }
-
-        // ==========================================
-        // TICKET: HIGH-PREMIUM PDF GENERATOR (A4)
-        // ==========================================
-        async function downloadPDF() {
-            const btn = document.getElementById('btn-download-pdf');
-            if (btn) {
-                btn.disabled = true;
-                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i> Generating Ticket...';
-            }
-
-            if (!currentRegistration) {
-                showToast('No registration data available', 'error');
-                if (btn) {
-                    btn.disabled = false;
-                    btn.innerHTML = '<i class="fa-solid fa-download mr-2"></i> Download Ticket (PDF)';
-                }
-                return;
-            }
-
-            let JsPDF = null;
-            if (window.jspdf && window.jspdf.jsPDF) {
-                JsPDF = window.jspdf.jsPDF;
-            } else if (window.jsPDF) {
-                JsPDF = window.jsPDF;
-            }
-
-            if (!JsPDF) {
-                showToast('PDF library not loaded. Use browser print instead.', 'error');
-                if (btn) {
-                    btn.disabled = false;
-                    btn.innerHTML = '<i class="fa-solid fa-download mr-2"></i> Download Ticket (PDF)';
-                }
-                return;
-            }
-
-            // Image Loader (Fetch Mode first, Canvas fallback)
-            async function loadImage(url) {
-                try {
-                    const response = await fetch(url, { mode: 'cors' });
-                    if (response.ok) {
-                        const blob = await response.blob();
-                        const dataUrl = await new Promise((resolve) => {
-                            const reader = new FileReader();
-                            reader.onloadend = () => resolve(reader.result);
-                            reader.onerror = () => resolve(null);
-                            reader.readAsDataURL(blob);
-                        });
-                        if (dataUrl) {
-                            return await new Promise((resolve) => {
-                                const img = new Image();
-                                img.onload = () => resolve({ dataUrl, width: img.naturalWidth || img.width, height: img.naturalHeight || img.height });
-                                img.onerror = () => resolve(null);
-                                img.src = dataUrl;
-                            });
-                        }
-                    }
-                } catch (e) {
-                    console.warn('Fallback canvas image loader executed', e);
-                }
-
-                return new Promise((resolve) => {
-                    const img = new Image();
-                    img.crossOrigin = 'Anonymous';
-                    img.onload = () => {
-                        try {
-                            const canvas = document.createElement('canvas');
-                            canvas.width = img.naturalWidth || img.width || 300;
-                            canvas.height = img.naturalHeight || img.height || 150;
-                            const ctx = canvas.getContext('2d');
-                            ctx.drawImage(img, 0, 0);
-                            resolve({ dataUrl: canvas.toDataURL('image/png'), width: canvas.width, height: canvas.height });
-                        } catch (err) {
-                            resolve(null);
-                        }
-                    };
-                    img.onerror = () => resolve(null);
-                    img.src = url;
-                });
-            }
-
-            try {
-                const r = currentRegistration;
-                const p = CONFIG.pricing;
-                const doc = new JsPDF('p', 'mm', 'a4'); // A4 Size: 210mm x 297mm
-
-                // 1. Warm Soft Ivory Background Block
-                doc.setFillColor(253, 251, 247);
-                doc.rect(0, 0, 210, 297, 'F');
-
-                // Symmetrical Golden Marigold Trim Frame
-                doc.setDrawColor(255, 183, 3);
-                doc.setLineWidth(1.2);
-                doc.rect(12, 12, 186, 273, 'S');
-
-                // Symmetrical Inner White Ticket Container
-                doc.setFillColor(255, 255, 255);
-                doc.rect(15, 15, 180, 267, 'F');
-
-                // 2. Midnight Velvet Header Banner (Height: 55mm, Y: 15..70)
-                doc.setFillColor(18, 0, 33);
-                doc.rect(15, 15, 180, 55, 'F');
-
-                // Gold Highlight Trim Banner Bottom
-                doc.setFillColor(255, 183, 3);
-                doc.rect(15, 70, 180, 2.5, 'F');
-
-                // Load Logo & Calculate Sizing ratios
-                const logoUrl = 'https://i.ibb.co/P0dQXyT/logo-removebg-preview.png';
-                const logoObj = await loadImage(logoUrl);
-
-                if (logoObj && logoObj.dataUrl) {
-                    const maxWidth = 70;
-                    const maxHeight = 30;
-                    let w = logoObj.width;
-                    let h = logoObj.height;
-                    const ratio = w / h;
-
-                    if (w > maxWidth) { w = maxWidth; h = w / ratio; }
-                    if (h > maxHeight) { h = maxHeight; w = h * ratio; }
-
-                    const x = 105 - (w / 2);
-                    const y = 18 + ((32 - h) / 2);
-                    doc.addImage(logoObj.dataUrl, 'PNG', x, y, w, h);
-                } else {
-                    doc.setFont('helvetica', 'bold');
-                    doc.setFontSize(26);
-                    doc.setTextColor(255, 107, 0);
-                    doc.text('GARBA EVE', 105, 34, { align: 'center' });
-                }
-
-                // Subtitle Header
-                doc.setFont('helvetica', 'bold');
-                doc.setFontSize(11);
-                doc.setTextColor(255, 183, 3);
-                doc.text('OFFICIAL ENTRY PASS • GARBA EVE 2026', 105, 56, { align: 'center' });
-
-                doc.setFont('helvetica', 'normal');
-                doc.setFontSize(9);
-                doc.setTextColor(230, 220, 240);
-                doc.text('Indian Community France – Grenoble', 105, 63, { align: 'center' });
-
-                // Left Column geometry
-                const leftX = 23;
-                const leftWidth = 95;
-
-                // --- WHEN & WHERE Box ---
-                doc.setFont('helvetica', 'bold');
-                doc.setFontSize(10);
-                doc.setTextColor(255, 107, 0);
-                doc.text('WHEN & WHERE', leftX, 83);
-
-                doc.setFillColor(255, 249, 240);
-                doc.rect(leftX, 86, leftWidth, 27, 'F');
-                doc.setDrawColor(255, 220, 180);
-                doc.rect(leftX, 86, leftWidth, 27, 'S');
-
-                doc.setFont('helvetica', 'bold');
-                doc.setFontSize(10);
-                doc.setTextColor(18, 0, 33);
-                doc.text('10th October 2026 | 16:00 – 19:00', leftX + 4, 94);
-
-                doc.setFont('helvetica', 'normal');
-                doc.setFontSize(9.5);
-                doc.setTextColor(70, 60, 80);
-                doc.text('Salle Polyvalente Gali', leftX + 4, 101);
-                doc.text('Grenoble, France', leftX + 4, 107);
-
-                // --- ATTENDEE ROSTER Box ---
-                doc.setFont('helvetica', 'bold');
-                doc.setFontSize(10);
-                doc.setTextColor(255, 107, 0);
-                doc.text('ATTENDEE DETAIL ROSTER', leftX, 122);
-
-                // Dynamically scale height of roster box based on attendee list
-                const nameCount = r.attendees.length;
-                const fieldHeight = Math.max(30, 12 + (nameCount * 5));
-
-                doc.setFillColor(255, 249, 240);
-                doc.rect(leftX, 125, leftWidth, fieldHeight, 'F');
-                doc.setDrawColor(255, 220, 180);
-                doc.rect(leftX, 125, leftWidth, fieldHeight, 'S');
-
-                doc.setFont('helvetica', 'bold');
-                doc.setFontSize(9.5);
-                doc.setTextColor(18, 0, 33);
-                doc.text(`Primary Contact: ${r.name}`, leftX + 4, 131);
-                
-                doc.setFont('helvetica', 'normal');
-                doc.setFontSize(8.5);
-                doc.setTextColor(70, 60, 80);
-                doc.text(`Contact Phone: ${r.phone}`, leftX + 4, 136);
-
-                // List each individual attendee name clearly inside PDF
-                let nameY = 142;
-                r.attendees.forEach((name, idx) => {
-                    if (nameY < (123 + fieldHeight)) {
-                        doc.text(`• Guest ${idx + 1}: ${name}`, leftX + 4, nameY);
-                        nameY += 5;
-                    }
-                });
-
-                // --- INVOICE BREAKDOWN Table ---
-                const tableTop = 134 + fieldHeight;
-                doc.setFont('helvetica', 'bold');
-                doc.setFontSize(10);
-                doc.setTextColor(255, 107, 0);
-                doc.text('TICKET BREAKDOWN', leftX, tableTop);
-
-                let tableY = tableTop + 7;
-                const rows = [
-                    ['Adults', `${r.adults} × ${p.adults} €`, `${(r.adults * p.adults).toFixed(2)} €`],
-                    ['Kids (5-16)', `${r.kids516} × ${p.kids5to16} €`, `${(r.kids516 * p.kids5to16).toFixed(2)} €`],
-                    ['Kids (Under 5)', `${r.kidsU5} × Free`, '0.00 €']
-                ];
-
-                rows.forEach(([label, count, price], idx) => {
-                    if (idx % 2 === 0) {
-                        doc.setFillColor(248, 245, 250);
-                        doc.rect(leftX, tableY - 5.5, leftWidth, 7.5, 'F');
-                    }
-                    doc.setFont('helvetica', 'normal');
-                    doc.setFontSize(9);
-                    doc.setTextColor(70, 60, 80);
-                    doc.text(label, leftX + 2, tableY);
-                    doc.text(count, leftX + 42, tableY);
-
-                    doc.setFont('helvetica', 'bold');
-                    doc.setTextColor(18, 0, 33);
-                    doc.text(price, leftX + leftWidth - 3, tableY, { align: 'right' });
-                    tableY += 8;
-                });
-
-                doc.setDrawColor(255, 183, 3);
-                doc.setLineWidth(0.6);
-                doc.line(leftX, tableY, leftX + leftWidth, tableY);
-                tableY += 7;
-
-                // Total Row
-                doc.setFont('helvetica', 'bold');
-                doc.setFontSize(11);
-                doc.setTextColor(18, 0, 33);
-                doc.text('TOTAL AMOUNT PAID', leftX + 2, tableY);
-
-                doc.setFontSize(13);
-                doc.setTextColor(255, 107, 0);
-                doc.text(`${r.totalAmount.toFixed(2)} €`, leftX + leftWidth - 3, tableY, { align: 'right' });
-
-                // Right Column geometry (Symmetric QR card)
-                const rightX = 125;
-                const rightWidth = 63;
-                const cardTopY = 86;
-                const cardHeight = 132;
-
-                doc.setFillColor(255, 255, 255);
-                doc.rect(rightX, cardTopY, rightWidth, cardHeight, 'F');
-                doc.setDrawColor(255, 183, 3);
-                doc.setLineWidth(0.8);
-                doc.rect(rightX, cardTopY, rightWidth, cardHeight, 'S');
-
-                // Card Header Banner
-                doc.setFillColor(255, 248, 235);
-                doc.rect(rightX, cardTopY, rightWidth, 12, 'F');
-                doc.setFont('helvetica', 'bold');
-                doc.setFontSize(9.5);
-                doc.setTextColor(18, 0, 33);
-                doc.text('ENTRY QR CODE', rightX + (rightWidth / 2), cardTopY + 8, { align: 'center' });
-
-                // Inject Local Dynamic QR Code Canvas
-                const qrImgY = cardTopY + 16;
-                const qrSize = 48;
-                const qrImgX = rightX + ((rightWidth - qrSize) / 2);
-
-                try {
-                    const qrEl = document.getElementById('ticket-qr');
-                    const qrCanvas = qrEl ? (qrEl.querySelector('canvas') || qrEl.querySelector('img')) : null;
-                    if (qrCanvas) {
-                        const qrData = (qrCanvas instanceof HTMLCanvasElement) ? qrCanvas.toDataURL('image/png') : qrCanvas.src;
-                        doc.addImage(qrData, 'PNG', qrImgX, qrImgY, qrSize, qrSize);
-                    } else {
-                        throw new Error('No QR source found');
-                    }
-                } catch (e) {
-                    doc.setDrawColor(200, 200, 200);
-                    doc.rect(qrImgX, qrImgY, qrSize, qrSize, 'S');
-                }
-
-                // Reference ID Badge Container
-                const badgeY = qrImgY + qrSize + 8;
-                doc.setFont('helvetica', 'bold');
-                doc.setFontSize(7.5);
-                doc.setTextColor(120, 120, 120);
-                doc.text('SYSTEM REFERENCE ID', rightX + (rightWidth / 2), badgeY, { align: 'center' });
-
-                doc.setFillColor(244, 240, 248);
-                doc.rect(rightX + 6, badgeY + 3, rightWidth - 12, 12, 'F');
-                doc.setFont('courier', 'bold');
-                doc.setFontSize(11);
-                doc.setTextColor(18, 0, 33);
-                doc.text(String(r.id), rightX + (rightWidth / 2), badgeY + 10.5, { align: 'center' });
-
-                // Verified Pill
-                const pillY = badgeY + 19;
-                doc.setFillColor(34, 139, 34);
-                doc.rect(rightX + 8, pillY, rightWidth - 16, 9, 'F');
-                doc.setFont('helvetica', 'bold');
-                doc.setFontSize(8);
-                doc.setTextColor(255, 255, 255);
-                doc.text('REGISTERED & PAID', rightX + (rightWidth / 2), pillY + 6, { align: 'center' });
-
-                doc.setFont('helvetica', 'italic');
-                doc.setFontSize(7.5);
-                doc.setTextColor(120, 110, 130);
-                doc.text('Scan at check-in desk', rightX + (rightWidth / 2), pillY + 14.5, { align: 'center' });
-
-                // Symmetrical Scissor Cutout design line
-                const cutY = 236;
-                doc.setDrawColor(200, 180, 150);
-                doc.setLineWidth(0.5);
-                doc.setLineDashPattern([3, 3], 0);
-                doc.line(18, cutY, 192, cutY);
-                doc.setLineDashPattern([], 0);
-
-                // Symmetrical notches
-                doc.setFillColor(253, 251, 247);
-                doc.circle(15, cutY, 4.5, 'F');
-                doc.circle(195, cutY, 4.5, 'F');
-                doc.setDrawColor(255, 183, 3);
-                doc.circle(15, cutY, 4.5, 'S');
-                doc.circle(195, cutY, 4.5, 'S');
-
-                // Symmetrical Bottom Footer Layout Box (Height: 32mm, Y: 245..277)
-                doc.setFillColor(18, 0, 33);
-                doc.rect(15, 245, 180, 32, 'F');
-
-                doc.setFillColor(255, 183, 3);
-                doc.rect(15, 245, 180, 1.5, 'F');
-
-                doc.setFont('helvetica', 'bold');
-                doc.setFontSize(9);
-                doc.setTextColor(255, 183, 3);
-                doc.text('EVENT ORGANIZERS', 105, 254, { align: 'center' });
-
-                doc.setFont('helvetica', 'bold');
-                doc.setFontSize(11);
-                doc.setTextColor(255, 255, 255);
-                doc.text('Esha Sharma & Mokshada Badgujar', 105, 262, { align: 'center' });
-
-                doc.setFont('helvetica', 'normal');
-                doc.setFontSize(9);
-                doc.setTextColor(230, 220, 240);
-                doc.text('Indian Community France – Grenoble', 105, 270, { align: 'center' });
-
-                // Decorative Corner Brackets inside frame
-                const corners = [ [18, 18], [192, 18], [18, 279], [192, 279] ];
-                corners.forEach(([cx, cy]) => {
-                    doc.setDrawColor(255, 183, 3);
-                    doc.setLineWidth(1.2);
-                    const dx = cx < 100 ? 5 : -5;
-                    const dy = cy < 150 ? 5 : -5;
-                    doc.line(cx, cy, cx + dx, cy);
-                    doc.line(cx, cy, cx, cy + dy);
-                });
-
-                doc.save(`garba-eve-2026-ticket-${r.id}.pdf`);
-                showToast('PDF downloaded successfully!', 'success');
-
-            } catch (err) {
-                console.error(err);
-                showToast('Voucher compilation crashed. Contact support.', 'error');
-            }
-
-            if (btn) {
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fa-solid fa-file-arrow-down"></i> Download Voucher (PDF)';
-            }
-        }
-
-        // ====================================
-        // PAGE: SCANNER GATE
-        // ====================================
-        function initScannerPage() {
-            if (!adminAuthenticated) {
-                navigate('landing');
-                return;
-            }
-            document.getElementById('scan-result').style.display = 'none';
-            renderRecentCheckins();
-        }
-
-        function startScanner() {
-            if (scannerRunning) return;
-            const region = document.getElementById('scanner-region');
-            region.innerHTML = '';
-            
-            document.getElementById('btn-start-scan').style.display = 'none';
-            document.getElementById('btn-stop-scan').style.display = 'block';
-
-            scannerInstance = new Html5Qrcode('scanner-region');
-            scannerInstance.start(
-                { facingMode: 'environment' },
-                { fps: 10, qrbox: { width: 220, height: 220 }, aspectRatio: 1.0 },
-                handleScanResult,
-                () => {} // Silent failures
-            ).then(() => {
-                scannerRunning = true;
-                showToast('Gate scanner activated successfully!', 'info');
-            }).catch(err => {
-                console.error(err);
-                showToast('Camera feed blocked. Manual override recommended.', 'error');
-                stopScanner();
-            });
-        }
-
-        function stopScanner() {
-            document.getElementById('btn-start-scan').style.display = 'block';
-            document.getElementById('btn-stop-scan').style.display = 'none';
-            
-            if (scannerInstance && scannerRunning) {
-                scannerInstance.stop().then(() => {
-                    scannerRunning = false;
-                    document.getElementById('scanner-region').innerHTML = '';
-                }).catch(console.error);
-            }
-        }
-
-        function handleScanResult(refCode) {
-            const code = refCode.trim().toUpperCase();
-            stopScanner();
-
-            const list = getRegistrations();
-            const reg = list.find(r => r.id === code);
-            const resultBox = document.getElementById('scan-result');
-            resultBox.style.display = 'block';
-
-            if (!reg) {
-                resultBox.innerHTML = `
-                    <div class="flex items-center gap-3 text-red-500 mb-2 font-bold">
-                        <i class="fa-solid fa-circle-xmark"></i> Invalid Ticket Ref Code
-                    </div>
-                    <p class="text-xs">No registration record is linked to <code class="bg-black/40 p-1 rounded font-mono text-amber-500">${code}</code>.</p>
-                `;
-                showToast('Scan rejected: Ticket code invalid', 'error');
-                return;
-            }
-
-            if (reg.checkedIn) {
-                resultBox.innerHTML = `
-                    <div class="flex items-center gap-3 text-yellow-500 mb-2 font-bold">
-                        <i class="fa-solid fa-triangle-exclamation"></i> Already Checked In
-                    </div>
-                    <p class="text-xs font-semibold text-white">${reg.name} (Primary Contact)</p>
-                    <p class="text-xs text-gray-400">This pass was already verified at ${new Date(reg.checkedInAt).toLocaleTimeString()}</p>
-                `;
-                showToast('Already checked in!', 'warning');
-                return;
-            }
-
-            // Perform successful gate log checkin update
-            const now = new Date().toISOString();
-            reg.checkedIn = true;
-            reg.checkedInAt = now;
-            updateRegistration(code, { checkedIn: true, checkedInAt: now });
-
-            resultBox.innerHTML = `
-                <div class="flex items-center gap-3 text-green-500 mb-2 font-bold">
-                    <i class="fa-solid fa-circle-check"></i> Check-in Confirmed!
-                </div>
-                <p class="text-xs font-semibold text-white mb-1">Roster Group: ${reg.name}</p>
-                <p class="text-xs text-gray-300">Total Group Assembly: <strong class="text-green-500">${reg.totalPeople} Passes</strong></p>
-                <div class="bg-black/35 p-2 rounded mt-2 border border-[#3E1A52]">
-                    <span class="block text-[10px] uppercase text-gray-400">Attendee Guest Ledger:</span>
-                    <p class="text-[11px] text-white">${reg.attendees.join(', ')}</p>
-                </div>
-            `;
-            showToast('Pass approved!', 'success');
-            renderRecentCheckins();
-        }
-
-        function manualCheckIn() {
-            const input = document.getElementById('manual-ref');
-            const code = input.value.trim().toUpperCase();
-            if (!code) {
-                showToast('Enter a valid ticket reference code', 'warning');
-                return;
-            }
-            handleScanResult(code);
-            input.value = '';
-        }
-
-        function renderRecentCheckins() {
-            const list = getRegistrations();
-            const checked = list.filter(r => r.checkedIn).sort((a,b) => new Date(b.checkedInAt) - new Date(a.checkedInAt));
-            const container = document.getElementById('recent-checkins');
-            container.innerHTML = '';
-
-            if (checked.length === 0) {
-                container.innerHTML = '<p class="text-xs text-center py-4" style="color:var(--fg-muted);">No check-in entries logged yet.</p>';
-                return;
-            }
-
-            checked.slice(0, 5).forEach(r => {
-                const el = document.createElement('div');
-                el.className = 'flex items-center justify-between text-xs py-2 border-b border-[#301648]';
-                el.innerHTML = `
-                    <div>
-                        <span class="block font-semibold text-white">${r.name}</span>
-                        <span class="text-[10px] text-gray-400 font-mono">${r.id} | ${r.totalPeople} Pass/es</span>
-                    </div>
-                    <span class="text-[10px] text-green-500 font-semibold">${new Date(r.checkedInAt).toLocaleTimeString()}</span>
-                `;
-                container.appendChild(el);
-            });
-        }
-
-        // ====================================
-        // PAGE: STATS & ANALYTICS ROSTER
-        // ====================================
-        function initStatsPage() {
-            if (!adminAuthenticated) {
-                navigate('landing');
-                return;
-            }
-
-            const list = getRegistrations();
-            const counts = getRegisteredCounts();
-            const capacity = CONFIG.capacity;
-
-            const totalRegistered = counts.adults + counts.kids516 + counts.kidsU5;
-            const capTotal = capacity.adults + capacity.kids516 + capacity.kidsU5;
-            const checkedInTotal = list.filter(r => r.checkedIn).reduce((sum, r) => sum + r.totalPeople, 0);
-
-            // Compute Financial Balance
-            const totalPaidRevenue = list.reduce((sum, r) => sum + r.totalAmount, 0);
-
-            // Populate Stats Cards Grid
-            const grid = document.getElementById('stats-grid');
-            grid.innerHTML = `
-                <!-- Metrics Card 1: Registrations -->
-                <div class="card relative overflow-hidden">
-                    <span class="block text-[10px] uppercase font-bold tracking-wider" style="color:var(--fg-muted);">Active Registry Profiles</span>
-                    <span class="text-3xl font-extrabold text-white block mt-1">${list.length}</span>
-                    <span class="text-[10px] text-gray-400 block mt-2">${totalRegistered} total tickets issued</span>
-                </div>
-                <!-- Metrics Card 2: Gate Traffic Progress -->
-                <div class="card">
-                    <span class="block text-[10px] uppercase font-bold tracking-wider" style="color:var(--fg-muted);">Gate Traffic Checked In</span>
-                    <span class="text-3xl font-extrabold text-green-500 block mt-1">${checkedInTotal}</span>
-                    <span class="text-[10px] text-gray-400 block mt-2">out of ${totalRegistered} active ticket passes</span>
-                </div>
-                <!-- Metrics Card 3: Revenue Balance -->
-                <div class="card">
-                    <span class="block text-[10px] uppercase font-bold tracking-wider" style="color:var(--fg-muted);">Estimated Revenue</span>
-                    <span class="text-3xl font-extrabold text-amber-500 block mt-1">${totalPaidRevenue.toFixed(2)} &euro;</span>
-                    <span class="text-[10px] text-green-500 block mt-2"><i class="fa-solid fa-lock"></i> Secured SEPA Funds</span>
-                </div>
-                <!-- Metrics Card 4: Global Remaining Capacity -->
-                <div class="card">
-                    <span class="block text-[10px] uppercase font-bold tracking-wider" style="color:var(--fg-muted);">Total Open Spots</span>
-                    <span class="text-3xl font-extrabold text-white block mt-1">${Math.max(0, capTotal - totalRegistered)}</span>
-                    <span class="text-[10px] text-gray-400 block mt-2">Remaining of ${capTotal} capacity limit</span>
-                </div>
-            `;
-
-            // Setup allocation bars
-            const bars = document.getElementById('stats-bars');
-            bars.innerHTML = '';
-
-            const categories = [
-                { label: 'Adults Capacity Allocation', registered: counts.adults, limit: capacity.adults, color: 'bg-amber-500' },
-                { label: 'Kids (5-16) Capacity Allocation', registered: counts.kids516, limit: capacity.kids516, color: 'bg-purple-500' },
-                { label: 'Kids (Under 5) Capacity Allocation', registered: counts.kidsU5, limit: capacity.kidsU5, color: 'bg-green-500' }
-            ];
-
-            categories.forEach(cat => {
-                const pct = Math.min(100, Math.round((cat.registered / cat.limit) * 100)) || 0;
-                const bar = document.createElement('div');
-                bar.innerHTML = `
-                    <div class="flex justify-between text-xs font-semibold text-gray-400 mb-1">
-                        <span>${cat.label}</span>
-                        <span>${cat.registered} / ${cat.limit} Spots (${pct}%)</span>
-                    </div>
-                    <div class="stat-bar-track">
-                        <div class="stat-bar-fill ${cat.color}" style="width: ${pct}%;"></div>
-                    </div>
-                `;
-                bars.appendChild(bar);
-            });
-
-            // Update Dynamic Check-in dial
-            const checkInPct = totalRegistered > 0 ? Math.round((checkedInTotal / totalRegistered) * 100) : 0;
-            document.getElementById('checkin-percentage').textContent = `${checkInPct}%`;
-            document.getElementById('checkin-progress-bar').style.width = `${checkInPct}%`;
-
-            renderRosterLedger();
-        }
-
-        function renderRosterLedger() {
-            const list = getRegistrations();
-            const body = document.getElementById('roster-table-body');
-            body.innerHTML = '';
-
-            if (list.length === 0) {
-                body.innerHTML = '<tr><td colspan="6" class="text-center py-8 text-gray-400">No active registrations processed yet.</td></tr>';
-                return;
-            }
-
-            list.forEach(r => {
-                const checkInBadge = r.checkedIn
-                    ? `<span class="badge badge-success"><i class="fa-solid fa-check"></i> Checked In</span>`
-                    : `<span class="badge badge-warning"><i class="fa-solid fa-clock"></i> Pending</span>`;
-
-                const namesFormatted = r.attendees.map(n => `<span class="block">• ${n}</span>`).join('');
-
-                const row = document.createElement('tr');
-                row.className = 'border-b border-[#1E0E3B] hover:bg-[#1C0933]/50 transition-colors';
-                row.innerHTML = `
-                    <td class="py-4 px-4 font-mono font-bold text-amber-500">${r.id}</td>
-                    <td class="py-4 px-4 font-semibold text-white">${r.name}</td>
-                    <td class="py-4 px-4">
-                        <span class="block">${r.email}</span>
-                        <span class="block text-gray-400 text-[10px] mt-1">${r.phone}</span>
-                    </td>
-                    <td class="py-4 px-4 text-gray-300">
-                        <div class="font-bold text-white">${r.totalPeople} Ticket/s:</div>
-                        <div class="mt-1 space-y-0.5 text-[10px] max-h-[100px] overflow-y-auto">${namesFormatted}</div>
-                    </td>
-                    <td class="py-4 px-4 font-bold text-white">${r.totalAmount.toFixed(2)} &euro;</td>
-                    <td class="py-4 px-4">${checkInBadge}</td>
-                `;
-                body.appendChild(row);
-            });
-        }
-
-        // Live Roster Search Filtering
-        function filterRoster() {
-            const query = document.getElementById('roster-search').value.toLowerCase().trim();
-            const rows = document.querySelectorAll('#roster-table-body tr');
-
-            rows.forEach(row => {
-                const text = row.textContent.toLowerCase();
-                if (text.includes(query)) {
-                    row.style.display = '';
-                } else {
-                    row.style.display = 'none';
-                }
-            });
-        }
-
-        // CSV Export Ledger Engine
-        function exportCSV() {
-            const list = getRegistrations();
-            if (list.length === 0) {
-                showToast('No records available for export', 'warning');
-                return;
-            }
-
-            const headers = ['Ref ID', 'Primary Name', 'Email', 'Phone', 'Adults', 'Kids 5-16', 'Kids Under 5', 'Attendees List', 'Total Paid', 'Checked In', 'Checked In At'];
-            let csvContent = headers.join(',') + '\n';
-
-            list.forEach(r => {
-                const row = [
-                    r.id,
-                    `"${r.name.replace(/"/g, '""')}"`,
-                    `"${r.email.replace(/"/g, '""')}"`,
-                    `"${r.phone.replace(/"/g, '""')}"`,
-                    r.adults,
-                    r.kids516,
-                    r.kidsU5,
-                    `"${r.attendees.join('; ').replace(/"/g, '""')}"`,
-                    r.totalAmount.toFixed(2),
-                    r.checkedIn ? 'YES' : 'NO',
-                    r.checkedInAt || ''
-                ];
-                csvContent += row.join(',') + '\n';
-            });
-
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.setAttribute('href', url);
-            link.setAttribute('download', `garba-eve-2026-roster-export.csv`);
-            link.style.display = 'none';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-            showToast('CSV export downloaded successfully!', 'success');
-        }
-
-        // ====================================
-        // ORGANIZER ACCESS SIGN IN
-        // ====================================
-        function openAdminModal() {
-            document.getElementById('admin-modal').classList.add('show');
-            document.getElementById('admin-pwd').value = '';
-            document.getElementById('admin-error').style.display = 'none';
-            setTimeout(() => document.getElementById('admin-pwd').focus(), 150);
-        }
-
-        function closeAdminModal() {
-            document.getElementById('admin-modal').classList.remove('show');
-        }
-
-        function tryAdminLogin() {
-            const pwd = document.getElementById('admin-pwd').value;
-            if (pwd === CONFIG.adminPassword) {
-                adminAuthenticated = true;
-                closeAdminModal();
-                showToast('Organizer dashboard authenticated!', 'success');
-                navigate('stats');
-            } else {
-                document.getElementById('admin-error').style.display = 'block';
-                setTimeout(() => document.getElementById('admin-error').style.display = 'none', 3000);
-            }
-        }
-
-        // Password enter key listener
-        document.getElementById('admin-pwd').addEventListener('keydown', function(e) {
-            if (e.key === 'Enter') tryAdminLogin();
+    }
+
+    // ====================================
+    // TICKET PAGE
+    // ====================================
+    function initTicketPage() {
+        if (!currentRegistration) { navigate('landing'); return; }
+        const r = currentRegistration;
+        let namesList = '';
+        r.attendees.forEach((name, i) => {
+            namesList += `<div class="flex items-center gap-2"><i class="fa-solid fa-circle-user" style="color:var(--accent-light); font-size:10px;"></i> <span class="text-white font-medium">${name}</span> <span class="text-[10px] text-gray-400 font-mono">(${i === 0 ? 'Primary contact' : `Guest ${i+1}`})</span></div>`;
         });
+        document.getElementById('ticket-details').innerHTML = `
+            <div>
+                <span class="block text-[10px] uppercase text-gray-400">Contact Email</span>
+                <span class="text-white">${r.email}</span>
+            </div>
+            <div>
+                <span class="block text-[10px] uppercase text-gray-400">Total Group (${r.totalPeople} Pass/es)</span>
+                <div class="space-y-1 mt-1 bg-black/35 p-3 rounded-lg border border-[#3E1A52]">${namesList}</div>
+            </div>
+        `;
+        document.getElementById('ticket-ref-display').textContent = r.id;
+        const qrContainer = document.getElementById('ticket-qr');
+        qrContainer.innerHTML = '';
+        new QRCode(qrContainer, {
+            text: r.id, width: 140, height: 140,
+            colorDark: '#000000', colorLight: '#ffffff',
+            correctLevel: QRCode.CorrectLevel.H
+        });
+    }
 
-        // Initialize App on load
-        function init() {
-            initParticles();
-            initCountdown();
-            updateLandingPage();
-            
-            // Check status of registrations on landing periodically
-            setInterval(() => {
-                if (currentPage === 'landing') updateLandingPage();
-            }, 10000);
+    // ====================================
+    // PDF DOWNLOAD (same as before)
+    // ====================================
+    async function downloadPDF() {
+        const btn = document.getElementById('btn-download-pdf');
+        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i> Generating...'; }
+        if (!currentRegistration) { showToast('No data', 'error'); if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-file-arrow-down"></i> Download Voucher (PDF)'; } return; }
+        let JsPDF = window.jspdf?.jsPDF || window.jsPDF;
+        if (!JsPDF) { showToast('PDF library not loaded', 'error'); if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-file-arrow-down"></i> Download Voucher (PDF)'; } return; }
+
+        async function loadImage(url) {
+            try {
+                const response = await fetch(url, { mode: 'cors' });
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const dataUrl = await new Promise(resolve => {
+                        const reader = new FileReader();
+                        reader.onloadend = () => resolve(reader.result);
+                        reader.onerror = () => resolve(null);
+                        reader.readAsDataURL(blob);
+                    });
+                    if (dataUrl) return await new Promise(resolve => {
+                        const img = new Image();
+                        img.onload = () => resolve({ dataUrl, width: img.naturalWidth, height: img.naturalHeight });
+                        img.onerror = () => resolve(null);
+                        img.src = dataUrl;
+                    });
+                }
+            } catch (e) {}
+            return null;
         }
 
-        window.onload = init;
-    </script>
+        try {
+            const r = currentRegistration;
+            const p = CONFIG.pricing;
+            const doc = new JsPDF('p', 'mm', 'a4');
+            doc.setFillColor(253, 251, 247); doc.rect(0, 0, 210, 297, 'F');
+            doc.setDrawColor(255, 183, 3); doc.setLineWidth(1.2); doc.rect(12, 12, 186, 273, 'S');
+            doc.setFillColor(255, 255, 255); doc.rect(15, 15, 180, 267, 'F');
+            doc.setFillColor(18, 0, 33); doc.rect(15, 15, 180, 55, 'F');
+            doc.setFillColor(255, 183, 3); doc.rect(15, 70, 180, 2.5, 'F');
+            const logoObj = await loadImage('https://i.ibb.co/P0dQXyT/logo-removebg-preview.png');
+            if (logoObj && logoObj.dataUrl) {
+                const maxW = 70, maxH = 30;
+                let w = logoObj.width, h = logoObj.height;
+                const ratio = w / h;
+                if (w > maxW) { w = maxW; h = w / ratio; }
+                if (h > maxH) { h = maxH; w = h * ratio; }
+                doc.addImage(logoObj.dataUrl, 'PNG', 105 - (w/2), 18 + ((32-h)/2), w, h);
+            } else {
+                doc.setFont('helvetica', 'bold'); doc.setFontSize(26); doc.setTextColor(255, 107, 0);
+                doc.text('GARBA EVE', 105, 34, { align: 'center' });
+            }
+            doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(255, 183, 3);
+            doc.text('OFFICIAL ENTRY PASS • GARBA EVE 2026', 105, 56, { align: 'center' });
+            doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(230, 220, 240);
+            doc.text('Indian Community France – Grenoble', 105, 63, { align: 'center' });
+            const leftX = 23, leftWidth = 95;
+            doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(255, 107, 0);
+            doc.text('WHEN & WHERE', leftX, 83);
+            doc.setFillColor(255, 249, 240); doc.rect(leftX, 86, leftWidth, 27, 'F');
+            doc.setDrawColor(255, 220, 180); doc.rect(leftX, 86, leftWidth, 27, 'S');
+            doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(18, 0, 33);
+            doc.text('10th October 2026 | 16:00 – 19:00', leftX + 4, 94);
+            doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(70, 60, 80);
+            doc.text('Salle Polyvalente Gali', leftX + 4, 101);
+            doc.text('Grenoble, France', leftX + 4, 107);
+            doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(255, 107, 0);
+            doc.text('ATTENDEE ROSTER', leftX, 122);
+            const nameCount = r.attendees.length;
+            const fieldHeight = Math.max(30, 12 + (nameCount * 5));
+            doc.setFillColor(255, 249, 240); doc.rect(leftX, 125, leftWidth, fieldHeight, 'F');
+            doc.setDrawColor(255, 220, 180); doc.rect(leftX, 125, leftWidth, fieldHeight, 'S');
+            doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5); doc.setTextColor(18, 0, 33);
+            doc.text(`Primary: ${r.name}`, leftX + 4, 131);
+            doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(70, 60, 80);
+            doc.text(`Phone: ${r.phone}`, leftX + 4, 136);
+            let nameY = 142;
+            r.attendees.forEach((name, idx) => {
+                if (nameY < (123 + fieldHeight)) {
+                    doc.text(`• Guest ${idx + 1}: ${name}`, leftX + 4, nameY);
+                    nameY += 5;
+                }
+            });
+            const tableTop = 134 + fieldHeight;
+            doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(255, 107, 0);
+            doc.text('TICKET BREAKDOWN', leftX, tableTop);
+            let tableY = tableTop + 7;
+            const rows = [
+                ['Adults', `${r.adults} × ${p.adults} €`, `${(r.adults * p.adults).toFixed(2)} €`],
+                ['Kids (5-16)', `${r.kids516} × ${p.kids5to16} €`, `${(r.kids516 * p.kids5to16).toFixed(2)} €`],
+                ['Kids (Under 5)', `${r.kidsU5} × Free`, '0.00 €']
+            ];
+            rows.forEach(([label, count, price], idx) => {
+                if (idx % 2 === 0) { doc.setFillColor(248, 245, 250); doc.rect(leftX, tableY - 5.5, leftWidth, 7.5, 'F'); }
+                doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(70, 60, 80);
+                doc.text(label, leftX + 2, tableY); doc.text(count, leftX + 42, tableY);
+                doc.setFont('helvetica', 'bold'); doc.setTextColor(18, 0, 33);
+                doc.text(price, leftX + leftWidth - 3, tableY, { align: 'right' });
+                tableY += 8;
+            });
+            doc.setDrawColor(255, 183, 3); doc.setLineWidth(0.6);
+            doc.line(leftX, tableY, leftX + leftWidth, tableY);
+            tableY += 7;
+            doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(18, 0, 33);
+            doc.text('TOTAL PAID', leftX + 2, tableY);
+            doc.setFontSize(13); doc.setTextColor(255, 107, 0);
+            doc.text(`${r.totalAmount.toFixed(2)} €`, leftX + leftWidth - 3, tableY, { align: 'right' });
+            const rightX = 125, rightWidth = 63, cardTopY = 86, cardHeight = 132;
+            doc.setFillColor(255, 255, 255); doc.rect(rightX, cardTopY, rightWidth, cardHeight, 'F');
+            doc.setDrawColor(255, 183, 3); doc.setLineWidth(0.8); doc.rect(rightX, cardTopY, rightWidth, cardHeight, 'S');
+            doc.setFillColor(255, 248, 235); doc.rect(rightX, cardTopY, rightWidth, 12, 'F');
+            doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5); doc.setTextColor(18, 0, 33);
+            doc.text('ENTRY QR CODE', rightX + (rightWidth / 2), cardTopY + 8, { align: 'center' });
+            const qrImgY = cardTopY + 16, qrSize = 48, qrImgX = rightX + ((rightWidth - qrSize) / 2);
+            try {
+                const qrEl = document.getElementById('ticket-qr');
+                const qrCanvas = qrEl?.querySelector('canvas') || qrEl?.querySelector('img');
+                if (qrCanvas) {
+                    const qrData = (qrCanvas instanceof HTMLCanvasElement) ? qrCanvas.toDataURL('image/png') : qrCanvas.src;
+                    doc.addImage(qrData, 'PNG', qrImgX, qrImgY, qrSize, qrSize);
+                }
+            } catch (e) {}
+            const badgeY = qrImgY + qrSize + 8;
+            doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5); doc.setTextColor(120, 120, 120);
+            doc.text('REFERENCE ID', rightX + (rightWidth / 2), badgeY, { align: 'center' });
+            doc.setFillColor(244, 240, 248); doc.rect(rightX + 6, badgeY + 3, rightWidth - 12, 12, 'F');
+            doc.setFont('courier', 'bold'); doc.setFontSize(11); doc.setTextColor(18, 0, 33);
+            doc.text(String(r.id), rightX + (rightWidth / 2), badgeY + 10.5, { align: 'center' });
+            const pillY = badgeY + 19;
+            doc.setFillColor(34, 139, 34); doc.rect(rightX + 8, pillY, rightWidth - 16, 9, 'F');
+            doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(255, 255, 255);
+            doc.text('REGISTERED & PAID', rightX + (rightWidth / 2), pillY + 6, { align: 'center' });
+            doc.setFont('helvetica', 'italic'); doc.setFontSize(7.5); doc.setTextColor(120, 110, 130);
+            doc.text('Scan at check-in desk', rightX + (rightWidth / 2), pillY + 14.5, { align: 'center' });
+            const cutY = 236;
+            doc.setDrawColor(200, 180, 150); doc.setLineWidth(0.5);
+            doc.setLineDashPattern([3, 3], 0); doc.line(18, cutY, 192, cutY);
+            doc.setLineDashPattern([], 0);
+            doc.setFillColor(253, 251, 247);
+            doc.circle(15, cutY, 4.5, 'F'); doc.circle(195, cutY, 4.5, 'F');
+            doc.setDrawColor(255, 183, 3);
+            doc.circle(15, cutY, 4.5, 'S'); doc.circle(195, cutY, 4.5, 'S');
+            doc.setFillColor(18, 0, 33); doc.rect(15, 245, 180, 32, 'F');
+            doc.setFillColor(255, 183, 3); doc.rect(15, 245, 180, 1.5, 'F');
+            doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(255, 183, 3);
+            doc.text('EVENT ORGANIZERS', 105, 254, { align: 'center' });
+            doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(255, 255, 255);
+            doc.text('Esha Sharma & Mokshada Badgujar', 105, 262, { align: 'center' });
+            doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(230, 220, 240);
+            doc.text('Indian Community France – Grenoble', 105, 270, { align: 'center' });
+            const corners = [[18, 18], [192, 18], [18, 279], [192, 279]];
+            corners.forEach(([cx, cy]) => {
+                doc.setDrawColor(255, 183, 3); doc.setLineWidth(1.2);
+                const dx = cx < 100 ? 5 : -5; const dy = cy < 150 ? 5 : -5;
+                doc.line(cx, cy, cx + dx, cy); doc.line(cx, cy, cx, cy + dy);
+            });
+            doc.save(`garba-eve-2026-ticket-${r.id}.pdf`);
+            showToast('PDF downloaded!', 'success');
+        } catch (err) {
+            console.error(err);
+            showToast('PDF error: ' + err.message, 'error');
+        }
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-file-arrow-down"></i> Download Voucher (PDF)'; }
+    }
+
+    // ====================================
+    // SCANNER
+    // ====================================
+    async function initScannerPage() {
+        if (!adminAuthenticated) { navigate('landing'); return; }
+        document.getElementById('scan-result').style.display = 'none';
+        await renderRecentCheckins();
+    }
+
+    function startScanner() {
+        if (scannerRunning) return;
+        const region = document.getElementById('scanner-region');
+        region.innerHTML = '';
+        document.getElementById('btn-start-scan').style.display = 'none';
+        document.getElementById('btn-stop-scan').style.display = 'block';
+        scannerInstance = new Html5Qrcode('scanner-region');
+        scannerInstance.start(
+            { facingMode: 'environment' },
+            { fps: 10, qrbox: { width: 220, height: 220 }, aspectRatio: 1.0 },
+            handleScanResult, () => {}
+        ).then(() => {
+            scannerRunning = true;
+            showToast('Scanner activated!', 'info');
+        }).catch(err => {
+            console.error(err);
+            showToast('Camera blocked', 'error');
+            stopScanner();
+        });
+    }
+
+    function stopScanner() {
+        document.getElementById('btn-start-scan').style.display = 'block';
+        document.getElementById('btn-stop-scan').style.display = 'none';
+        if (scannerInstance && scannerRunning) {
+            scannerInstance.stop().then(() => {
+                scannerRunning = false;
+                document.getElementById('scanner-region').innerHTML = '';
+            }).catch(console.error);
+        }
+    }
+
+    async function handleScanResult(refCode) {
+        const code = refCode.trim().toUpperCase();
+        stopScanner();
+        const list = await getRegistrations(true);
+        const reg = list.find(r => r.id === code);
+        const resultBox = document.getElementById('scan-result');
+        resultBox.style.display = 'block';
+        if (!reg) {
+            resultBox.innerHTML = `<div class="flex items-center gap-3 text-red-500 mb-2 font-bold"><i class="fa-solid fa-circle-xmark"></i> Invalid Ticket</div><p class="text-xs">No record found for <code class="bg-black/40 p-1 rounded font-mono text-amber-500">${code}</code>.</p>`;
+            showToast('Invalid ticket', 'error');
+            return;
+        }
+        if (reg.checkedIn) {
+            resultBox.innerHTML = `<div class="flex items-center gap-3 text-yellow-500 mb-2 font-bold"><i class="fa-solid fa-triangle-exclamation"></i> Already Checked In</div><p class="text-xs font-semibold text-white">${reg.name}</p><p class="text-xs text-gray-400">Verified at ${new Date(reg.checkedInAt).toLocaleTimeString()}</p>`;
+            showToast('Already checked in!', 'warning');
+            return;
+        }
+        const now = new Date().toISOString();
+        try {
+            await updateRegistration(code, { checkedIn: true, checkedInAt: now });
+            resultBox.innerHTML = `<div class="flex items-center gap-3 text-green-500 mb-2 font-bold"><i class="fa-solid fa-circle-check"></i> Check-in Confirmed!</div><p class="text-xs font-semibold text-white mb-1">${reg.name}</p><p class="text-xs text-gray-300">Total: <strong class="text-green-500">${reg.totalPeople} Passes</strong></p><div class="bg-black/35 p-2 rounded mt-2 border border-[#3E1A52]"><span class="block text-[10px] uppercase text-gray-400">Attendees:</span><p class="text-[11px] text-white">${reg.attendees.join(', ')}</p></div>`;
+            showToast('Pass approved!', 'success');
+            await renderRecentCheckins();
+        } catch (e) {
+            showToast('Failed to update check-in', 'error');
+        }
+    }
+
+    function manualCheckIn() {
+        const input = document.getElementById('manual-ref');
+        const code = input.value.trim().toUpperCase();
+        if (!code) { showToast('Enter a code', 'warning'); return; }
+        handleScanResult(code);
+        input.value = '';
+    }
+
+    async function renderRecentCheckins() {
+        const list = await getRegistrations(true);
+        const checked = list.filter(r => r.checkedIn).sort((a,b) => new Date(b.checkedInAt) - new Date(a.checkedInAt));
+        const container = document.getElementById('recent-checkins');
+        container.innerHTML = '';
+        if (checked.length === 0) {
+            container.innerHTML = '<p class="text-xs text-center py-4" style="color:var(--fg-muted);">No check-ins yet.</p>';
+            return;
+        }
+        checked.slice(0, 5).forEach(r => {
+            const el = document.createElement('div');
+            el.className = 'flex items-center justify-between text-xs py-2 border-b border-[#301648]';
+            el.innerHTML = `<div><span class="block font-semibold text-white">${r.name}</span><span class="text-[10px] text-gray-400 font-mono">${r.id} | ${r.totalPeople} Pass/es</span></div><span class="text-[10px] text-green-500 font-semibold">${new Date(r.checkedInAt).toLocaleTimeString()}</span>`;
+            container.appendChild(el);
+        });
+    }
+
+    // ====================================
+    // STATS PAGE
+    // ====================================
+    async function initStatsPage() {
+        if (!adminAuthenticated) { navigate('landing'); return; }
+        const list = await getRegistrations(true);
+        const counts = await getRegisteredCounts();
+        const capacity = CONFIG.capacity;
+        const totalRegistered = counts.adults + counts.kids516 + counts.kidsU5;
+        const capTotal = capacity.adults + capacity.kids516 + capacity.kidsU5;
+        const checkedInTotal = list.filter(r => r.checkedIn).reduce((sum, r) => sum + r.totalPeople, 0);
+        const totalPaidRevenue = list.reduce((sum, r) => sum + r.totalAmount, 0);
+        document.getElementById('stats-grid').innerHTML = `
+            <div class="card"><span class="block text-[10px] uppercase font-bold tracking-wider" style="color:var(--fg-muted);">Active Registrations</span><span class="text-3xl font-extrabold text-white block mt-1">${list.length}</span><span class="text-[10px] text-gray-400 block mt-2">${totalRegistered} total tickets</span></div>
+            <div class="card"><span class="block text-[10px] uppercase font-bold tracking-wider" style="color:var(--fg-muted);">Checked In</span><span class="text-3xl font-extrabold text-green-500 block mt-1">${checkedInTotal}</span><span class="text-[10px] text-gray-400 block mt-2">of ${totalRegistered} tickets</span></div>
+            <div class="card"><span class="block text-[10px] uppercase font-bold tracking-wider" style="color:var(--fg-muted);">Revenue</span><span class="text-3xl font-extrabold text-amber-500 block mt-1">${totalPaidRevenue.toFixed(2)} €</span><span class="text-[10px] text-green-500 block mt-2"><i class="fa-solid fa-lock"></i> SEPA</span></div>
+            <div class="card"><span class="block text-[10px] uppercase font-bold tracking-wider" style="color:var(--fg-muted);">Open Spots</span><span class="text-3xl font-extrabold text-white block mt-1">${Math.max(0, capTotal - totalRegistered)}</span><span class="text-[10px] text-gray-400 block mt-2">of ${capTotal}</span></div>
+        `;
+        const bars = document.getElementById('stats-bars');
+        bars.innerHTML = '';
+        const categories = [
+            { label: 'Adults', registered: counts.adults, limit: capacity.adults, color: 'bg-amber-500' },
+            { label: 'Kids (5-16)', registered: counts.kids516, limit: capacity.kids516, color: 'bg-purple-500' },
+            { label: 'Kids (Under 5)', registered: counts.kidsU5, limit: capacity.kidsU5, color: 'bg-green-500' }
+        ];
+        categories.forEach(cat => {
+            const pct = Math.min(100, Math.round((cat.registered / cat.limit) * 100)) || 0;
+            const bar = document.createElement('div');
+            bar.innerHTML = `<div class="flex justify-between text-xs font-semibold text-gray-400 mb-1"><span>${cat.label}</span><span>${cat.registered} / ${cat.limit} (${pct}%)</span></div><div class="stat-bar-track"><div class="stat-bar-fill ${cat.color}" style="width: ${pct}%;"></div></div>`;
+            bars.appendChild(bar);
+        });
+        const checkInPct = totalRegistered > 0 ? Math.round((checkedInTotal / totalRegistered) * 100) : 0;
+        document.getElementById('checkin-percentage').textContent = `${checkInPct}%`;
+        document.getElementById('checkin-progress-bar').style.width = `${checkInPct}%`;
+        await renderRosterLedger();
+    }
+
+    async function renderRosterLedger() {
+        const list = await getRegistrations();
+        const body = document.getElementById('roster-table-body');
+        body.innerHTML = '';
+        if (list.length === 0) {
+            body.innerHTML = '<tr><td colspan="6" class="text-center py-8 text-gray-400">No registrations yet.</td></tr>';
+            return;
+        }
+        list.forEach(r => {
+            const checkInBadge = r.checkedIn
+                ? `<span class="badge badge-success"><i class="fa-solid fa-check"></i> Checked In</span>`
+                : `<span class="badge badge-warning"><i class="fa-solid fa-clock"></i> Pending</span>`;
+            const namesFormatted = r.attendees.map(n => `<span class="block">• ${n}</span>`).join('');
+            const row = document.createElement('tr');
+            row.className = 'border-b border-[#1E0E3B] hover:bg-[#1C0933]/50 transition-colors';
+            row.innerHTML = `
+                <td class="py-4 px-4 font-mono font-bold text-amber-500">${r.id}</td>
+                <td class="py-4 px-4 font-semibold text-white">${r.name}</td>
+                <td class="py-4 px-4"><span class="block">${r.email}</span><span class="block text-gray-400 text-[10px] mt-1">${r.phone}</span></td>
+                <td class="py-4 px-4 text-gray-300"><div class="font-bold text-white">${r.totalPeople} Ticket/s:</div><div class="mt-1 space-y-0.5 text-[10px] max-h-[100px] overflow-y-auto">${namesFormatted}</div></td>
+                <td class="py-4 px-4 font-bold text-white">${r.totalAmount.toFixed(2)} €</td>
+                <td class="py-4 px-4">${checkInBadge}</td>
+            `;
+            body.appendChild(row);
+        });
+    }
+
+    function filterRoster() {
+        const query = document.getElementById('roster-search').value.toLowerCase().trim();
+        document.querySelectorAll('#roster-table-body tr').forEach(row => {
+            row.style.display = row.textContent.toLowerCase().includes(query) ? '' : 'none';
+        });
+    }
+
+    async function exportCSV() {
+        const list = await getRegistrations(true);
+        if (list.length === 0) { showToast('No records to export', 'warning'); return; }
+        const headers = ['Ref ID', 'Name', 'Email', 'Phone', 'Adults', 'Kids 5-16', 'Kids U5', 'Attendees', 'Total Paid', 'Checked In', 'Checked In At'];
+        let csv = headers.join(',') + '\n';
+        list.forEach(r => {
+            const row = [
+                r.id,
+                `"${(r.name || '').replace(/"/g, '""')}"`,
+                `"${(r.email || '').replace(/"/g, '""')}"`,
+                `"${(r.phone || '').replace(/"/g, '""')}"`,
+                r.adults, r.kids516, r.kidsU5,
+                `"${(r.attendees || []).join('; ').replace(/"/g, '""')}"`,
+                r.totalAmount.toFixed(2),
+                r.checkedIn ? 'YES' : 'NO',
+                r.checkedInAt || ''
+            ];
+            csv += row.join(',') + '\n';
+        });
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'garba-eve-2026-roster.csv';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        showToast('CSV exported!', 'success');
+    }
+
+    // ====================================
+    // ADMIN
+    // ====================================
+    function openAdminModal() {
+        document.getElementById('admin-modal').classList.add('show');
+        document.getElementById('admin-pwd').value = '';
+        document.getElementById('admin-error').style.display = 'none';
+        setTimeout(() => document.getElementById('admin-pwd').focus(), 150);
+    }
+
+    function closeAdminModal() {
+        document.getElementById('admin-modal').classList.remove('show');
+    }
+
+    function tryAdminLogin() {
+        const pwd = document.getElementById('admin-pwd').value;
+        if (pwd === CONFIG.adminPassword) {
+            adminAuthenticated = true;
+            closeAdminModal();
+            showToast('Authenticated!', 'success');
+            navigate('stats');
+        } else {
+            document.getElementById('admin-error').style.display = 'block';
+            setTimeout(() => document.getElementById('admin-error').style.display = 'none', 3000);
+        }
+    }
+
+    document.getElementById('admin-pwd').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') tryAdminLogin();
+    });
+
+    // ====================================
+    // INIT
+    // ====================================
+    async function init() {
+        initParticles();
+        initCountdown();
+        await updateLandingPage();
+        setInterval(async () => {
+            if (currentPage === 'landing') await updateLandingPage();
+        }, 15000);
+    }
+
+    window.onload = init;
+</script>
 </body>
 </html>
